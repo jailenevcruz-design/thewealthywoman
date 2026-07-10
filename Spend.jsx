@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { money, curMonth, todayISO, CATS } from './lib'
+import { useState, useRef } from 'react'
+import { money, curMonth, todayISO, CATS, guessCategory } from './lib'
 
 function SpendSheet({ db, insert, update, remove, onClose, showToast, editing }) {
   const [cat, setCat] = useState(editing?.category || 'Dining')
@@ -10,9 +10,7 @@ function SpendSheet({ db, insert, update, remove, onClose, showToast, editing })
   const [billId, setBillId] = useState(editing?.bill_id || '')
   const [customCat, setCustomCat] = useState('')
   const [addingCat, setAddingCat] = useState(false)
-
-  const allCats = [...CATS, ...(customCat ? [[customCat, '✨', '#c9b8ee', 'c-custom']] : [])]
-  const catMeta = allCats.find(c => c[0] === cat) || CATS[0]
+  const catMeta = CATS.find(c => c[0] === cat) || CATS[0]
   const unpaidBills = db.bills.filter(b => !b.archived && b.status !== 'paid')
 
   const save = () => {
@@ -23,8 +21,8 @@ function SpendSheet({ db, insert, update, remove, onClose, showToast, editing })
     if (linkBill && billId) {
       const b = db.bills.find(x => x.id === billId)
       if (b) {
-        const paid = (b.paid_amount || 0) + amt
-        update('bills', billId, { paid_amount: paid, status: paid >= b.amount ? 'paid' : 'partial' })
+        const p = (b.paid_amount || 0) + amt
+        update('bills', billId, { paid_amount: p, status: p >= b.amount ? 'paid' : 'partial' })
       }
     }
     showToast(editing ? 'Updated' : 'Spend added')
@@ -32,7 +30,7 @@ function SpendSheet({ db, insert, update, remove, onClose, showToast, editing })
   }
 
   const del = () => {
-    if (editing && confirm('Delete this entry?')) { remove('spend', editing.id); showToast('Deleted'); onClose() }
+    if (window.confirm('Delete this entry?')) { remove('spend', editing.id); showToast('Deleted'); onClose() }
   }
 
   return (
@@ -51,7 +49,7 @@ function SpendSheet({ db, insert, update, remove, onClose, showToast, editing })
             {addingCat
               ? <div style={{ display: 'flex', gap: 6, width: '100%' }}>
                   <input style={{ flex: 1, padding: '8px 12px', borderRadius: 12, border: '1.5px solid var(--line)', fontSize: 13 }} placeholder="Category name" value={customCat} onChange={e => setCustomCat(e.target.value)} />
-                  <button style={{ padding: '8px 12px', borderRadius: 12, background: 'var(--matcha)', color: '#4e6327', fontWeight: 700, fontSize: 12 }} onClick={() => { if (customCat) { setCat(customCat); setAddingCat(false) } }}>Add</button>
+                  <button style={{ padding: '8px 12px', borderRadius: 12, background: 'var(--matcha)', color: '#4e6327', fontWeight: 700, fontSize: 12, border: 'none' }} onClick={() => { if (customCat) { setCat(customCat); setAddingCat(false) } }}>Add</button>
                 </div>
               : <button className="cat" style={{ background: '#fff', border: '1.5px dashed var(--pink)', color: '#9c3f74' }} onClick={() => setAddingCat(true)}>+ custom</button>
             }
@@ -83,9 +81,120 @@ function SpendSheet({ db, insert, update, remove, onClose, showToast, editing })
   )
 }
 
+function CSVImport({ db, insert, update, onClose, showToast }) {
+  const [rows, setRows] = useState(null)
+  const [cats, setCats] = useState({})
+  const fileRef = useRef()
+
+  const parseCSV = e => {
+    const file = e.target.files[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = ev => {
+      const lines = ev.target.result.split('\n').filter(l => l.trim())
+      const headers = lines[0].toLowerCase().split(',').map(h => h.trim().replace(/"/g, ''))
+      const dateIdx = headers.findIndex(h => h.includes('date'))
+      const descIdx = headers.findIndex(h => h.includes('desc') || h.includes('merchant') || h.includes('name') || h.includes('memo'))
+      const amtIdx = headers.findIndex(h => h.includes('amount') || h.includes('debit'))
+      const parsed = lines.slice(1).map(line => {
+        const cols = line.split(',').map(c => c.trim().replace(/"/g, ''))
+        const amt = Math.abs(parseFloat(cols[amtIdx] || '0'))
+        if (!amt || amt <= 0) return null
+        const merchant = cols[descIdx] || 'Unknown'
+        const guessed = guessCategory(merchant)
+        return { date: cols[dateIdx] || todayISO(), merchant, amount: amt, guessed }
+      }).filter(Boolean)
+      const initCats = {}
+      parsed.forEach((r, i) => { initCats[i] = r.guessed || '__unrecognized__' })
+      setRows(parsed)
+      setCats(initCats)
+    }
+    reader.readAsText(file)
+  }
+
+  const doImport = () => {
+    rows.forEach((r, i) => {
+      const cat = cats[i]
+      if (cat === '__skip__') return
+      const needsCat = cat === '__unrecognized__'
+      const catMeta = CATS.find(c => c[0] === cat)
+      insert('spend', {
+        place: r.merchant, category: needsCat ? 'Needs category' : cat,
+        emoji: needsCat ? '❓' : (catMeta?.[1] || '💸'),
+        color: needsCat ? '#dcd6e0' : (catMeta?.[2] || '#c9b8ee'),
+        amount: r.amount, date: r.date, bill_id: null,
+        needs_category: needsCat,
+      })
+    })
+    const imported = rows.filter((_, i) => cats[i] !== '__skip__').length
+    showToast(`${imported} transactions imported ✨`)
+    onClose()
+  }
+
+  const allCatOptions = [...CATS.map(c => c[0]), '__skip__']
+
+  if (!rows) return (
+    <div className="overlay" onClick={onClose}>
+      <div className="sheet" onClick={e => e.stopPropagation()}>
+        <h3>Import from bank CSV 📥</h3>
+        <p className="shint">Download transactions from your bank and upload the CSV file.</p>
+        <div style={{ border: '2px dashed var(--pink)', borderRadius: 20, padding: 32, textAlign: 'center', background: 'var(--pink-soft)', marginBottom: 16 }}>
+          <div style={{ fontSize: 36, marginBottom: 10 }}>📂</div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: '#7a2f57', marginBottom: 6 }}>Choose your CSV file</div>
+          <div style={{ fontSize: 12, color: '#9c6f84', lineHeight: 1.5, marginBottom: 14 }}>Works with Chase, Bank of America, Capital One, and most banks</div>
+          <input ref={fileRef} type="file" accept=".csv" onChange={parseCSV} style={{ display: 'none' }} />
+          <button style={{ padding: '12px 24px', borderRadius: 14, background: 'var(--pink)', color: '#fff', fontWeight: 800, fontSize: 14, border: 'none' }} onClick={() => fileRef.current.click()}>Choose file</button>
+        </div>
+        <button className="cancel" onClick={onClose}>Cancel</button>
+      </div>
+    </div>
+  )
+
+  const total = rows.filter((_, i) => cats[i] !== '__skip__').reduce((s, r) => s + r.amount, 0)
+  const matched = rows.filter((_, i) => cats[i] !== '__unrecognized__' && cats[i] !== '__skip__').length
+  const unrecognized = rows.filter((_, i) => cats[i] === '__unrecognized__').length
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="sheet" onClick={e => e.stopPropagation()}>
+        <h3>Review import 📥</h3>
+        <p className="shint">{rows.length} transactions found · fix categories before saving</p>
+        <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+          <div style={{ flex: 1, borderRadius: 14, padding: 12, textAlign: 'center', background: 'var(--pink-soft)', color: '#9c3f74' }}><div style={{ fontSize: 17, fontWeight: 800 }}>{rows.length}</div><div style={{ fontSize: 10, fontWeight: 700, marginTop: 3, opacity: .75 }}>FOUND</div></div>
+          <div style={{ flex: 1, borderRadius: 14, padding: 12, textAlign: 'center', background: 'var(--lav)', color: '#5a52a0' }}><div style={{ fontSize: 17, fontWeight: 800 }}>{money(total)}</div><div style={{ fontSize: 10, fontWeight: 700, marginTop: 3, opacity: .75 }}>TOTAL</div></div>
+          <div style={{ flex: 1, borderRadius: 14, padding: 12, textAlign: 'center', background: '#e7f2c7', color: '#51691f' }}><div style={{ fontSize: 17, fontWeight: 800 }}>{matched}/{rows.length}</div><div style={{ fontSize: 10, fontWeight: 700, marginTop: 3, opacity: .75 }}>MATCHED</div></div>
+        </div>
+        {unrecognized > 0 && <div style={{ background: '#fff6ea', border: '1px solid #f5e2c4', borderRadius: 12, padding: '10px 13px', fontSize: 12, color: '#9a6a1a', fontWeight: 600, marginBottom: 14 }}>💛 {unrecognized} unrecognized — they'll import as "Needs category" so you can fix them later in your spend log.</div>}
+        {rows.map((r, i) => (
+          <div key={i} style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 14, padding: 13, marginBottom: 10, opacity: cats[i] === '__skip__' ? .45 : 1 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+              <div><div style={{ fontSize: 13, fontWeight: 800 }}>{r.merchant}</div><div style={{ fontSize: 11, color: 'var(--ink2)', marginTop: 2 }}>{r.date}</div></div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 800, color: '#c0483f' }}>${r.amount.toFixed(2)}</div>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {allCatOptions.map(c => (
+                <button key={c} onClick={() => setCats(prev => ({ ...prev, [i]: c }))}
+                  style={{ fontSize: 11, fontWeight: 700, padding: '6px 11px', borderRadius: 20, border: 'none',
+                    background: cats[i] === c ? (c === '__skip__' ? '#f4f0f6' : 'var(--lav)') : '#f4f0f6',
+                    color: cats[i] === c ? (c === '__skip__' ? '#9a8ba0' : '#5a52a0') : 'var(--ink2)',
+                    boxShadow: cats[i] === c ? '0 2px 6px rgba(150,120,160,.2)' : 'none' }}>
+                  {c === '__skip__' ? '⏭ Skip' : c === '__unrecognized__' ? '❓ Unknown' : CATS.find(x => x[0] === c)?.[1] + ' ' + c || c}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+        <button className="apply" onClick={doImport}>Import {rows.filter((_, i) => cats[i] !== '__skip__').length} transactions ✨</button>
+        <button className="cancel" onClick={onClose}>Cancel</button>
+      </div>
+    </div>
+  )
+}
+
 export default function Spend({ db, insert, update, remove, showToast }) {
   const [sheet, setSheet] = useState(false)
   const [editing, setEditing] = useState(null)
+  const [csvOpen, setCsvOpen] = useState(false)
   const m = curMonth()
   const monthSpend = db.spend.filter(s => s.date.slice(0, 7) === m)
   const total = monthSpend.reduce((s, x) => s + x.amount, 0)
@@ -115,10 +224,13 @@ export default function Spend({ db, insert, update, remove, showToast }) {
           <div className="daylabel">{day === todayISO() ? 'Today' : new Date(day + 'T00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
           <div className="card">
             {monthSpend.filter(s => s.date === day).map(s => (
-              <button className="erow" key={s.id} onClick={() => { setEditing(s); setSheet(true) }} style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', borderBottom: '1px solid var(--line)' }}>
+              <button className="erow" key={s.id} onClick={() => { setEditing(s); setSheet(true) }} style={{ width: '100%', textAlign: 'left', background: s.needs_category ? '#fff6ea' : 'none', border: 'none', borderBottom: '1px solid var(--line)' }}>
                 <div className="eleft">
                   <div className="cdot" style={{ background: (s.color || '#c9b8ee') + '22' }}>{s.emoji}</div>
-                  <div><div className="nm">{s.place || s.category}</div><div className="mt">{s.category}{s.bill_id && <span className="feeds">→ Bill</span>}</div></div>
+                  <div>
+                    <div className="nm">{s.place || s.category}</div>
+                    <div className="mt">{s.category}{s.needs_category && <span style={{ fontSize: 9, fontWeight: 800, color: '#9a6a1a', background: '#fff6ea', padding: '1px 6px', borderRadius: 8, marginLeft: 5 }}>needs category</span>}{s.bill_id && <span className="feeds">→ Bill</span>}</div>
+                  </div>
                 </div>
                 <div className="amt">{money(s.amount, 2)}</div>
               </button>
@@ -127,7 +239,10 @@ export default function Spend({ db, insert, update, remove, showToast }) {
         </div>
       ))}
       <button className="paybtn" onClick={() => { setEditing(null); setSheet(true) }}>+ Log a spend ✨</button>
+      <button style={{ width: '100%', marginTop: 10, padding: 13, borderRadius: 16, border: '1.5px solid var(--lav)', background: 'var(--lav)', color: '#5a52a0', fontWeight: 800, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }} onClick={() => setCsvOpen(true)}>📥 Import from bank CSV</button>
+      <p style={{ fontSize: 11, color: 'var(--ink2)', textAlign: 'center', marginTop: 8, lineHeight: 1.5 }}>Download transactions from your bank<br />and import them all at once</p>
       {sheet && <SpendSheet db={db} insert={insert} update={update} remove={remove} showToast={showToast} editing={editing} onClose={() => { setSheet(false); setEditing(null) }} />}
+      {csvOpen && <CSVImport db={db} insert={insert} update={update} showToast={showToast} onClose={() => setCsvOpen(false)} />}
     </div>
   )
 }

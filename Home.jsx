@@ -68,15 +68,25 @@ export default function Home({ db, go, update, showToast }) {
       </div>
       <div className="screen">
         <Hero />
+
+        <div className="sec">💡 Today's money wisdom</div>
+        <button className="nudge" onClick={() => go('more')}>
+          <span className="nbadge">{nudge.t.label} · {nudge.t.source.split('·')[0]}</span>
+          <div className="nquote">"{nudge.t.principle}"</div>
+          <div className="napply">📊 For you: {nudge.text}</div>
+          <span className="nmore">See more in Teachings → </span>
+        </button>
+
         <div className="sec">This month at a glance</div>
         <div className="grid2" style={{ marginBottom: 12 }}>
-          <button className="tile t-pink" onClick={() => go('bills')}><div className="big">{paid}/{mb.length}</div><div className="cap">bills paid 🧾</div></button>
-          <button className="tile t-sage" onClick={() => go('checks')}><div className="big">{money(thisMonthNet)}</div><div className="cap">take-home 💵</div></button>
+          <button className="tile t-pink" onClick={() => go('bills')}><div className="big">{paid}/{mb.length}</div><div className="cap">bills paid 💌</div></button>
+          <button className="tile t-sage" onClick={() => go('checks')}><div className="big">{money(thisMonthNet)}</div><div className="cap">take-home 📬</div></button>
         </div>
         <div className="grid2">
           <button className="tile t-lav" onClick={() => go('more')}><div className="big">{money(totalDebt)}</div><div className="cap">total debt 💳</div></button>
-          <button className="tile t-sky" onClick={() => go('savings')}><div className="big">{money(saved)}</div><div className="cap">saved 🐷</div></button>
+          <button className="tile t-sky" onClick={() => go('savings')}><div className="big">{money(saved)}</div><div className="cap">saved 💫</div></button>
         </div>
+
         <button className="feat" onClick={() => go('more')}>
           <div className="ring" style={{ background: `conic-gradient(var(--pink) ${pct}%, #efe6f2 0)` }}>
             <b style={{ color: 'var(--pink)' }}>{pct}%<small>paid off</small></b>
@@ -88,26 +98,29 @@ export default function Home({ db, go, update, showToast }) {
           </div>
           <div className="featdots"><i className="on" /><i /></div>
         </button>
+
         <div className="sec p">Quick log</div>
         <div className="grid4">
           <button className="ql a" onClick={() => go('spend')}><span className="emo">🧾</span>Bill</button>
           <button className="ql b" onClick={() => go('checks')}><span className="emo">💵</span>Income</button>
-          <button className="ql c" onClick={() => go('savings')}><span className="emo">🐷</span>Save</button>
+          <button className="ql c" onClick={() => go('savings')}><span className="emo">💫</span>Save</button>
           <button className="ql d" onClick={() => go('more')}><span className="emo">🚗</span>EZ</button>
         </div>
+
         <div className="grid2" style={{ marginTop: 16 }}>
           <div className="statcard t-lav">
-            <div className="lbl">🐷 {ef.name || 'Emergency'}</div>
+            <div className="lbl">💫 {ef.name || 'Emergency'}</div>
             <div className="num">{money(ef.saved)}<span style={{ fontSize: 13, opacity: .7 }}> / {money(ef.target)}</span></div>
             <div className="bar dk" style={{ marginTop: 9 }}><i style={{ width: Math.min(100, efPct) + '%', background: '#8b7fd0' }} /></div>
             <div className="foot">{efPct}% there</div>
           </div>
           <div className="statcard t-pink">
-            <div className="lbl">💳 Next bill</div>
+            <div className="lbl">💌 Next bill</div>
             <div className="num">{nextBill ? money(nextBill.amount) : '—'}</div>
             <div className="foot">{nextBill ? `${nextBill.name} · due ${nextBill.due_day}${nextBill.due_day === 1 ? 'st' : 'th'}` : 'all paid 🎉'}</div>
           </div>
         </div>
+
         <div className="sec">Credit scores</div>
         <div className="creditgrid">
           {db.credit_scores.filter(c => c.bureau !== 'Equifax').map(cs => {
@@ -123,13 +136,6 @@ export default function Home({ db, go, update, showToast }) {
           })}
         </div>
         <p style={{ fontSize: 11, color: 'var(--ink2)', textAlign: 'center', marginTop: 10 }}>tap a score to update it</p>
-        <div className="sec">💡 Today's money wisdom</div>
-        <button className="nudge" onClick={() => go('more')}>
-          <span className="nbadge">{nudge.t.label} · {nudge.t.source.split('·')[0]}</span>
-          <div className="nquote">"{nudge.t.principle}"</div>
-          <div className="napply">📊 For you: {nudge.text}</div>
-          <span className="nmore">See more in Teachings → </span>
-        </button>
       </div>
     </div>
   )

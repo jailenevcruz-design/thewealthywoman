@@ -6,6 +6,7 @@ export default function Bills({ db, update, insert, remove, showToast }) {
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState(null)
   const [paySheet, setPaySheet] = useState(null)
+  const [warnBill, setWarnBill] = useState(null)
 
   const active = db.bills.filter(b => !b.archived)
   const archived = db.bills.filter(b => b.archived)
@@ -31,6 +32,12 @@ export default function Bills({ db, update, insert, remove, showToast }) {
     const paid = (b.paid_amount || 0) + amt
     const status = paid >= b.amount ? 'paid' : paid > 0 ? 'partial' : 'unpaid'
     update('bills', b.id, { paid_amount: Math.min(paid, b.amount), status })
+    // auto-log in spend too
+    insert('spend', {
+      place: b.name, category: b.grp || 'Housing',
+      emoji: '🧾', color: '#a89be6', amount: amt,
+      date: new Date().toISOString().slice(0, 10), bill_id: b.id
+    })
     showToast(`Payment logged — ${money(amt)} on ${b.name}`)
     setPaySheet(null)
   }
@@ -78,7 +85,7 @@ export default function Bills({ db, update, insert, remove, showToast }) {
                       <div className={'amt' + (b.status === 'paid' ? ' paid' : '')}>{money(b.amount, 2)}</div>
                       <div style={{ display: 'flex', gap: 5 }}>
                         <button className="tag" style={{ background: 'var(--lav)', color: '#5a52a0' }} onClick={() => setEditing(b)}>Edit</button>
-                        <button className="tag pay" style={{ background: 'var(--matcha)', color: '#38571f' }} onClick={() => setPaySheet(b)}>Pay</button>
+                        <button className="tag pay" style={{ background: 'var(--matcha)', color: '#38571f' }} onClick={() => setWarnBill(b)}>Pay</button>
                         <button className="tag" style={{ background: '#ffdada', color: '#8a2020' }} onClick={() => unsubscribe(b)}>Unsub</button>
                       </div>
                     </div>
@@ -120,6 +127,18 @@ export default function Bills({ db, update, insert, remove, showToast }) {
           ))}
         </div>}
       </>}
+
+      {/* Warning popup */}
+      {warnBill && (
+        <div className="overlay" onClick={() => setWarnBill(null)}>
+          <div className="sheet" onClick={e => e.stopPropagation()}>
+            <h3>⚠️ Heads up</h3>
+            <p className="shint" style={{fontSize:13,color:'var(--ink)',marginBottom:18,lineHeight:1.5}}>This will also add a spend record. Skip if you already logged this in Spend.</p>
+            <button className="apply" onClick={() => { setPaySheet(warnBill); setWarnBill(null) }}>Got it, continue</button>
+            <button className="cancel" onClick={() => setWarnBill(null)}>Cancel</button>
+          </div>
+        </div>
+      )}
 
       {/* Pay sheet */}
       {paySheet && (

@@ -10,10 +10,10 @@ import More from './More.jsx'
 
 const TABS = [
   ['home', '🌸', 'Home'],
-  ['bills', '🧾', 'Bills'],
+  ['bills', '💌', 'Bills'],
   ['spend', '💸', 'Spend'],
-  ['checks', '💵', 'Checks'],
-  ['savings', '🐷', 'Savings'],
+  ['checks', '📬', 'Checks'],
+  ['savings', '💫', 'Savings'],
   ['more', '•••', 'More'],
 ]
 

@@ -66,7 +66,7 @@ export default function Savings({ db, insert, update, remove, showToast }) {
 
   return (
     <div className="screen">
-      <div className="pagetitle">Savings 🐷</div>
+      <div className="pagetitle">Savings 💫</div>
       <p className="pagesub">Every dollar has a name</p>
       <div className="halo">
         <div className="donut" style={{ background: `conic-gradient(${stops.join(',')})` }}>
