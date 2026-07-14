@@ -1,12 +1,23 @@
 import { useState, useRef, useEffect } from 'react'
 import { money, curMonth, todayISO, CATS, guessCategory } from './lib'
 
-const CAT_STYLES = {
-  'Groceries':'#e8f5e0','Dining':'#fde8df','Gas':'#fef3c7','Shopping':'#dbeafe',
-  'Auto':'#d1fae5','Housing':'#ede9fe','Pet':'#fef3c7','Subscriptions':'#fce7f3',
-  'Pay in 4':'#fee2e2','Personal':'#f3e8ff','Gifts':'#ffedd5','Health':'#e0f2fe',
-  'Utilities':'#e0e7ff','Cards':'#ffe4e6',
-}
+const CAT_STYLES = { 
+  'Groceries': '#e8f5e0',
+  'Dining': '#fde8df',
+  'Gas': '#fef3c7',
+  'Shopping': '#dbeafe',
+  'Auto': '#d1fae5',
+  'Housing': '#ede9fe',
+  'Pet': '#fae8ff',
+  'Subscriptions': '#fce7f3',
+  'Pay in 4': '#fee2e2',
+  'Personal': '#f4f4f5',
+  'Gifts': '#ffedd5',
+  'Health': '#e0f2fe',
+  'Utilities': '#fdba74',
+  'Cards': '#e0f7fa'
+};
+
 
 function SpendSheet({ db, insert, update, remove, onClose, showToast, editing }) {
   const [cat, setCat] = useState(editing?.category || 'Dining')
