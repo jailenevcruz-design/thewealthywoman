@@ -1,0 +1,10 @@
+{
+  "name": "Soft Life, Hard Work",
+  "short_name": "Soft Life",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FFF9FB",
+  "theme_color": "#D4577C",
+  "orientation": "portrait",
+  "icons": []
+}
