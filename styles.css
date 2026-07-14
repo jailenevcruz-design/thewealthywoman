@@ -131,7 +131,7 @@
   .legend{flex:1}
   .lgrow{display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:6px}
   .lgrow:last-child{margin-bottom:0}
-  .lgrow .d{width:9px;height:9px;border-radius:3px;flex:none}
+  .lgrow .d{width:10px;height:10px;border-radius:50%;flex:none}
   .lgrow .lname{flex:1;font-weight:700}
   .lgrow .lv{font-family:var(--mono);color:var(--ink2)}
   .daylabel{font-size:11px;font-weight:800;color:var(--ink2);margin:16px 4px 8px}
