@@ -220,8 +220,18 @@ export default function Spend({ db, insert, update, remove, showToast }) {
   const total = monthSpend.reduce((s, x) => s + x.amount, 0)
   const cats = {}; monthSpend.forEach(s => { cats[s.category] = (cats[s.category] || 0) + s.amount })
   const colorOf = c => (CATS.find(x => x[0] === c) || ['','','#c9b8ee'])[2]
-  let acc = 0
-  const stops = Object.entries(cats).map(([k, v]) => { const f = v / total * 100; const s = `${colorOf(k)} ${acc}% ${acc + f}%`; acc += f; return s })
+let acc = 0
+const stops = []
+Object.entries(cats).forEach(([k, v]) => {
+  const f = (v / total) * 100
+  const color = colorOf(k)
+  
+  // Push the explicit start and end markers for a sharp slice edge
+  stops.push(`${color} ${acc}%`)
+  stops.push(`${color} ${acc + f}%`)
+  
+  acc += f
+})
   const days = [...new Set(monthSpend.map(s => s.date))].sort().reverse()
 
   const openNew = () => { setEditing(null); setSheet(true) }
