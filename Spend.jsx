@@ -233,14 +233,9 @@ function CSVImport({ db, insert, update, onClose, showToast }) {
                 <button key={c} onClick={() => setCats(prev => ({ ...prev, [i]: c }))}
                   style={{ fontSize: 11, fontWeight: 700, padding: '6px 11px', borderRadius: 20, border: 'none', background: cats[i] === c ? 'var(--lav)' : '#f4f0f6', color: cats[i] === c ? '#5a52a0' : 'var(--ink2)', boxShadow: cats[i] === c ? '0 2px 6px rgba(150,120,160,.2)' : 'none' }}>
                   {c === '__skip__' ? '⏭ Skip' : CATS.find(x => x[0] === c)?.[1] + ' ' + c || c}
-                </button>
-              ))}
+                      </button>
+            ))}
             </div>
-          </div>
-        ))}
-        <button className="apply" onClick={doImport}>Import {rows.filter((_, i) => cats[i] !== '__skip__').length} transactions ✨</button>
-        <button className="cancel" onClick={onClose}>Cancel</button>
-                 </div>
           </div>
         ))}
         <button className="apply" onClick={doImport}>Import {rows.filter((_, i) => cats[i] !== '__skip__').length} transactions ✨</button>
