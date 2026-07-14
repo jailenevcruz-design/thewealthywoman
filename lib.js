@@ -243,8 +243,6 @@ export const CATS = [
   ['Utilities', '⚡', '#ffeed5', 'c-util'],
   ['Cards', '💳', '#ccfbf1', 'c-cards'],
 ];
-
-
 // Merchant name → category auto-matcher for CSV import
 export function guessCategory(merchant) {
   const m = merchant.toUpperCase()
