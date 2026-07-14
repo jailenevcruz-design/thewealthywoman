@@ -146,12 +146,7 @@ function SpendSheet({ db, insert, update, remove, onClose, showToast, editing })
         <button className="apply" onClick={save}>{editing ? 'Save changes ✨' : 'Add spend ✨'}</button>
         <button className="cancel" onClick={onClose}>Cancel</button>
         {editing && <button onClick={del} style={{ width: '100%', marginTop: 10, padding: 12, borderRadius: 14, background: 'none', border: 'none', color: '#c0483f', fontWeight: 700, fontSize: 13 }}>🗑 Delete this entry</button>}
-      </div>
-    </div>
-  )
-}
-
-function CSVImport({ db, insert, update, onClose, showToast }) {
+     function CSVImport({ db, insert, update, onClose, showToast }) {
   const [rows, setRows] = useState(null)
   const [cats, setCats] = useState({})
   const fileRef = useRef()
@@ -211,6 +206,40 @@ function CSVImport({ db, insert, update, onClose, showToast }) {
   const matched = rows.filter((_, i) => cats[i] !== '__unrecognized__' && cats[i] !== '__skip__').length
   const unrecognized = rows.filter((_, i) => cats[i] === '__unrecognized__').length
 
+  return (
+    <div className="overlay" style={{ position: 'fixed', inset: 0, zIndex: 100 }} onClick={onClose}>
+      <div className="sheet" style={{ maxHeight: '92vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+        <h3>Review import 📥</h3>
+        <p className="shint">{rows.length} transactions found</p>
+        <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+          <div style={{ flex: 1, borderRadius: 14, padding: 12, textAlign: 'center', background: 'var(--pink-soft)', color: '#9c3f74' }}><div style={{ fontSize: 17, fontWeight: 800 }}>{rows.length}</div><div style={{ fontSize: 10, fontWeight: 700, marginTop: 3, opacity: .75 }}>FOUND</div></div>
+          <div style={{ flex: 1, borderRadius: 14, padding: 12, textAlign: 'center', background: 'var(--lav)', color: '#5a52a0' }}><div style={{ fontSize: 17, fontWeight: 800 }}>{money(total)}</div><div style={{ fontSize: 10, fontWeight: 700, marginTop: 3, opacity: .75 }}>TOTAL</div></div>
+          <div style={{ flex: 1, borderRadius: 14, padding: 12, textAlign: 'center', background: '#e7f2c7', color: '#51691f' }}><div style={{ fontSize: 17, fontWeight: 800 }}>{matched}/{rows.length}</div><div style={{ fontSize: 10, fontWeight: 700, marginTop: 3, opacity: .75 }}>MATCHED</div></div>
+        </div>
+        {unrecognized > 0 && <div style={{ background: '#fff6ea', border: '1px solid #f5e2c4', borderRadius: 12, padding: '10px 13px', fontSize: 12, color: '#9a6a1a', fontWeight: 600, marginBottom: 14 }}>💛 {unrecognized} unrecognized — they'll import as "Needs category" so you can fix them later.</div>}
+        {rows.map((r, i) => (
+          <div key={i} style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 14, padding: 13, marginBottom: 10, opacity: cats[i] === '__skip__' ? .45 : 1 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+              <div><div style={{ fontSize: 13, fontWeight: 800 }}>{r.merchant}</div><div style={{ fontSize: 11, color: 'var(--ink2)', marginTop: 2 }}>{r.date}</div></div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 800, color: '#c0483f' }}>${r.amount.toFixed(2)}</div>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {[...CATS.map(c => c[0]), '__skip__'].map(c => (
+                <button key={c} onClick={() => setCats(prev => ({ ...prev, [i]: c }))}
+                  style={{ fontSize: 11, fontWeight: 700, padding: '6px 11px', borderRadius: 20, border: 'none', background: cats[i] === c ? 'var(--lav)' : '#f4f0f6', color: cats[i] === c ? '#5a52a0' : 'var(--ink2)', boxShadow: cats[i] === c ? '0 2px 6px rgba(150,120,160,.2)' : 'none' }}>
+                  {c === '__skip__' ? '⏭ Skip' : CATS.find(x => x[0] === c)?.[1] + ' ' + c || c}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+        <button className="apply" onClick={doImport}>Import {rows.filter((_, i) => cats[i] !== '__skip__').length} transactions ✨</button>
+        <button className="cancel" onClick={onClose}>Cancel</button>
+      </div>
+    </div>
+  )
+}
+          
   return (
     <div className="overlay" style={{ position: 'fixed', inset: 0, zIndex: 100 }} onClick={onClose}>
       <div className="sheet" style={{ maxHeight: '92vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
