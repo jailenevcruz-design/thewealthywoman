@@ -1,58 +1,47 @@
 import { useState, useRef, useEffect } from 'react'
 import { money, curMonth, todayISO, CATS, guessCategory } from './lib'
-export default function Spend({ db, insert, update, remove, showToast }) {
-  const [sheet, setSheet] = useState(false)
-  const [editing, setEditing] = useState(null)
-  const [csvOpen, setCsvOpen] = useState(false)
-  const scrollRef = useRef()
-  const m = curMonth()
-  const monthSpend = db.spend.filter(s => s.date.slice(0, 7) === m)
-  const total = monthSpend.reduce((s, x) => s + x.amount, 0)
-  const cats = {}; monthSpend.forEach(s => { cats[s.category] = (cats[s.category] || 0) + s.amount })
-const colorOf = c => {
-  if (!c) return '#e5dced';
-  const match = CATS.find(x => x[0].toLowerCase().trim() === c.toLowerCase().trim());
-  if (match) return match[2];
-  
-  // Dynamic fallback so custom categories don't turn purple
-  let hash = 0;
-  for (let i = 0; i < c.length; i++) hash = c.charCodeAt(i) + ((hash << 5) - hash);
-  return `hsl(${Math.abs(hash % 360)}, 65%, 70%)`;
-};
 
-let acc = 0;
-const stops = [];
-Object.entries(cats).forEach(([k, v]) => {
-  const f = (v / total) * 100;
-  const color = colorOf(k);
-
-  
-  // Push the explicit start and end markers for a sharp slice edge
-  stops.push(`${color} ${acc}%`)
-  stops.push(`${color} ${acc + f}%`)
-  
-  acc += f
-})
-  const days = [...new Set(monthSpend.map(s => s.date))].sort().reverse()
+const CAT_STYLES = {
+  'Groceries':'#e8f5e0','Dining':'#fde8df','Gas':'#fef3c7','Shopping':'#dbeafe',
+  'Auto':'#d1fae5','Housing':'#ede9fe','Pet':'#fef3c7','Subscriptions':'#fce7f3',
+  'Pay in 4':'#fee2e2','Personal':'#f3e8ff','Gifts':'#ffedd5','Health':'#e0f2fe',
+  'Utilities':'#e0e7ff','Cards':'#ffe4e6',
+}
 
 
-const CAT_STYLES = { 
-  'Groceries': '#e8f5e0',
-  'Dining': '#fde8df',
-  'Gas': '#fef3c7',
-  'Shopping': '#dbeafe',
-  'Auto': '#d1fae5',
-  'Housing': '#ede9fe',
-  'Pet': '#fae8ff',
-  'Subscriptions': '#fce7f3',
-  'Pay in 4': '#fee2e2',
-  'Personal': '#f4f4f5',
-  'Gifts': '#ffedd5',
-  'Health': '#e0f2fe',
-  'Utilities': '#fdba74',
-  'Cards': '#e0f7fa'
-};
+const SWATCHES = [
+  '#ef9fc9','#c9b8ee','#9ec9ef','#8bb23a','#f6b26b',
+  '#5bbd8e','#e88f8f','#c48fd0','#7bafe0','#f0997b',
+  '#d4a017','#3a9e8f','#9b6dbd','#d45c8a','#4aa8c8',
+]
+const EMOJIS = ['✨','🌸','💫','🌿','🎀','🌙','💕','🔥','🍓','🌈','💎','🦋','🌺','🍰','🎵']
 
+function CustomCatBuilder({ onAdd, onCancel }) {
+  const [name, setName] = useState('')
+  const [emoji, setEmoji] = useState('✨')
+  const [color, setColor] = useState('#ef9fc9')
+  return (
+    <div style={{ width: '100%', background: '#fff', border: '1.5px solid var(--line)', borderRadius: 16, padding: 12, marginTop: 4 }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+        <input style={{ flex: 1, padding: '8px 10px', borderRadius: 12, border: '1.5px solid var(--line)', fontSize: 13, fontWeight: 600 }} placeholder="Category name" value={name} onChange={e => setName(e.target.value)} autoFocus />
+      </div>
+      <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--ink2)', marginBottom: 6 }}>PICK AN EMOJI</div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+        {EMOJIS.map(e => <button key={e} onClick={() => setEmoji(e)} style={{ width: 32, height: 32, borderRadius: 10, border: emoji === e ? '2px solid var(--pink)' : '2px solid transparent', background: emoji === e ? 'var(--pink-soft)' : '#f4f0f6', fontSize: 16, cursor: 'pointer' }}>{e}</button>)}
+      </div>
+      <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--ink2)', marginBottom: 6 }}>PICK A COLOR</div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+        {SWATCHES.map(c => <button key={c} onClick={() => setColor(c)} style={{ width: 28, height: 28, borderRadius: '50%', background: c, border: color === c ? '3px solid #3a3340' : '3px solid transparent', cursor: 'pointer' }} />)}
+      </div>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button onClick={() => { if (name) onAdd(name, emoji, color) }} style={{ flex: 1, padding: '9px', borderRadius: 12, background: 'var(--matcha)', color: '#4e6327', fontWeight: 800, fontSize: 12, border: 'none' }}>
+          {emoji} Add "{name || 'category'}"
+        </button>
+        <button onClick={onCancel} style={{ padding: '9px 14px', borderRadius: 12, background: '#f4f0f6', color: 'var(--ink2)', fontWeight: 700, fontSize: 12, border: 'none' }}>Cancel</button>
+      </div>
+    </div>
+  )
+}
 
 function SpendSheet({ db, insert, update, remove, onClose, showToast, editing }) {
   const [cat, setCat] = useState(editing?.category || 'Dining')
@@ -62,9 +51,9 @@ function SpendSheet({ db, insert, update, remove, onClose, showToast, editing })
   const [linkBill, setLinkBill] = useState(!!editing?.bill_id)
   const [billId, setBillId] = useState(editing?.bill_id || '')
   const [billMonth, setBillMonth] = useState(editing?.bill_month || curMonth())
-  const [customCat, setCustomCat] = useState('')
+  const [customCat, setCustomCat] = useState(null)
   const [addingCat, setAddingCat] = useState(false)
-  const catMeta = CATS.find(c => c[0] === cat) || CATS[0]
+  const catMeta = CATS.find(c => c[0] === cat) || (customCat && customCat.name === cat ? ['custom', customCat.emoji || '✨', customCat.color || '#c9b8ee', 'c-custom'] : CATS[0])
   // show ALL bills including paid, across all months
   const allBills = db.bills.filter(b => !b.archived)
 
@@ -105,10 +94,7 @@ function SpendSheet({ db, insert, update, remove, onClose, showToast, editing })
               </button>
             ))}
             {addingCat
-              ? <div style={{ display: 'flex', gap: 6, width: '100%' }}>
-                  <input style={{ flex: 1, padding: '8px 12px', borderRadius: 12, border: '1.5px solid var(--line)', fontSize: 13 }} placeholder="Category name" value={customCat} onChange={e => setCustomCat(e.target.value)} />
-                  <button style={{ padding: '8px 12px', borderRadius: 12, background: 'var(--matcha)', color: '#4e6327', fontWeight: 700, fontSize: 12, border: 'none' }} onClick={() => { if (customCat) { setCat(customCat); setAddingCat(false) } }}>Add</button>
-                </div>
+              ? <CustomCatBuilder onAdd={(name, emoji, color) => { setCat(name); setCustomCat({ name, emoji, color }); setAddingCat(false) }} onCancel={() => setAddingCat(false)} />
               : <button className="cat" style={{ background: '#fff', border: '1.5px dashed var(--pink)', color: '#9c3f74' }} onClick={() => setAddingCat(true)}>+ custom</button>}
           </div>
         </div>
@@ -146,7 +132,12 @@ function SpendSheet({ db, insert, update, remove, onClose, showToast, editing })
         <button className="apply" onClick={save}>{editing ? 'Save changes ✨' : 'Add spend ✨'}</button>
         <button className="cancel" onClick={onClose}>Cancel</button>
         {editing && <button onClick={del} style={{ width: '100%', marginTop: 10, padding: 12, borderRadius: 14, background: 'none', border: 'none', color: '#c0483f', fontWeight: 700, fontSize: 13 }}>🗑 Delete this entry</button>}
-     function CSVImport({ db, insert, update, onClose, showToast }) {
+      </div>
+    </div>
+  )
+}
+
+function CSVImport({ db, insert, update, onClose, showToast }) {
   const [rows, setRows] = useState(null)
   const [cats, setCats] = useState({})
   const fileRef = useRef()
@@ -239,40 +230,6 @@ function SpendSheet({ db, insert, update, remove, onClose, showToast, editing })
     </div>
   )
 }
-          
-  return (
-    <div className="overlay" style={{ position: 'fixed', inset: 0, zIndex: 100 }} onClick={onClose}>
-      <div className="sheet" style={{ maxHeight: '92vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
-        <h3>Review import 📥</h3>
-        <p className="shint">{rows.length} transactions found</p>
-        <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
-          <div style={{ flex: 1, borderRadius: 14, padding: 12, textAlign: 'center', background: 'var(--pink-soft)', color: '#9c3f74' }}><div style={{ fontSize: 17, fontWeight: 800 }}>{rows.length}</div><div style={{ fontSize: 10, fontWeight: 700, marginTop: 3, opacity: .75 }}>FOUND</div></div>
-          <div style={{ flex: 1, borderRadius: 14, padding: 12, textAlign: 'center', background: 'var(--lav)', color: '#5a52a0' }}><div style={{ fontSize: 17, fontWeight: 800 }}>{money(total)}</div><div style={{ fontSize: 10, fontWeight: 700, marginTop: 3, opacity: .75 }}>TOTAL</div></div>
-          <div style={{ flex: 1, borderRadius: 14, padding: 12, textAlign: 'center', background: '#e7f2c7', color: '#51691f' }}><div style={{ fontSize: 17, fontWeight: 800 }}>{matched}/{rows.length}</div><div style={{ fontSize: 10, fontWeight: 700, marginTop: 3, opacity: .75 }}>MATCHED</div></div>
-        </div>
-        {unrecognized > 0 && <div style={{ background: '#fff6ea', border: '1px solid #f5e2c4', borderRadius: 12, padding: '10px 13px', fontSize: 12, color: '#9a6a1a', fontWeight: 600, marginBottom: 14 }}>💛 {unrecognized} unrecognized — they'll import as "Needs category" so you can fix them later.</div>}
-        {rows.map((r, i) => (
-          <div key={i} style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 14, padding: 13, marginBottom: 10, opacity: cats[i] === '__skip__' ? .45 : 1 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
-              <div><div style={{ fontSize: 13, fontWeight: 800 }}>{r.merchant}</div><div style={{ fontSize: 11, color: 'var(--ink2)', marginTop: 2 }}>{r.date}</div></div>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 800, color: '#c0483f' }}>${r.amount.toFixed(2)}</div>
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {[...CATS.map(c => c[0]), '__skip__'].map(c => (
-                <button key={c} onClick={() => setCats(prev => ({ ...prev, [i]: c }))}
-                  style={{ fontSize: 11, fontWeight: 700, padding: '6px 11px', borderRadius: 20, border: 'none', background: cats[i] === c ? 'var(--lav)' : '#f4f0f6', color: cats[i] === c ? '#5a52a0' : 'var(--ink2)', boxShadow: cats[i] === c ? '0 2px 6px rgba(150,120,160,.2)' : 'none' }}>
-                  {c === '__skip__' ? '⏭ Skip' : CATS.find(x => x[0] === c)?.[1] + ' ' + c || c}
-                      </button>
-            ))}
-            </div>
-          </div>
-        ))}
-        <button className="apply" onClick={doImport}>Import {rows.filter((_, i) => cats[i] !== '__skip__').length} transactions ✨</button>
-        <button className="cancel" onClick={onClose}>Cancel</button>
-      </div>
-    </div>
-  )
-}
 
 export default function Spend({ db, insert, update, remove, showToast }) {
   const [sheet, setSheet] = useState(false)
@@ -283,24 +240,11 @@ export default function Spend({ db, insert, update, remove, showToast }) {
   const monthSpend = db.spend.filter(s => s.date.slice(0, 7) === m)
   const total = monthSpend.reduce((s, x) => s + x.amount, 0)
   const cats = {}; monthSpend.forEach(s => { cats[s.category] = (cats[s.category] || 0) + s.amount })
-
-  const colorOf = c => {
-    if (!c) return '#c9b8ee';
-    const match = CATS.find(x => x[0].toLowerCase().trim() === c.toLowerCase().trim());
-    return match ? match[2] : '#c9b8ee';
-  };
-
-  let acc = 0;
-  const stops = [];
-  Object.entries(cats).forEach(([k, v]) => {
-    const f = (v / total) * 100;
-    const color = colorOf(k);
-    stops.push(`${color} ${acc}%`);
-    stops.push(`${color} ${acc + f}%`);
-    acc += f;
-  });
-
+  const colorOf = c => (CATS.find(x => x[0] === c) || ['','','#c9b8ee'])[2]
+  let acc = 0
+  const stops = Object.entries(cats).map(([k, v]) => { const f = v / total * 100; const s = `${colorOf(k)} ${acc}% ${acc + f}%`; acc += f; return s })
   const days = [...new Set(monthSpend.map(s => s.date))].sort().reverse()
+
   const openNew = () => { setEditing(null); setSheet(true) }
   const openEdit = s => { setEditing(s); setSheet(true) }
   const closeSheet = () => { setSheet(false); setEditing(null) }
@@ -325,7 +269,7 @@ export default function Spend({ db, insert, update, remove, showToast }) {
           ))}
         </div>
       </div>
-      
+
       {days.map(day => (
         <div key={day}>
           <div className="daylabel">{day === todayISO() ? 'Today' : new Date(day + 'T00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
