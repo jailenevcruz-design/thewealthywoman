@@ -279,7 +279,7 @@
   .overlay{position:absolute;inset:0;background:rgba(60,45,70,.42);display:flex;align-items:flex-end;z-index:50}
   .sheet{background:linear-gradient(180deg,#fdf4fa,#f3f7fb);width:100%;border-radius:24px 24px 0 0;padding:22px 18px 26px;max-height:640px;overflow-y:auto}
   .sheet h3{margin:0 0 4px;font-size:19px;font-weight:800}
-  .sheet .shint{font-size:12px;color:var(--ink2);margin:0 0 16px}
+  .sheet .shint{font-size:10px;color:var(--ink2);margin:0 0 16px}
   .amountf{background:linear-gradient(135deg,var(--pink-soft),var(--lav));border-radius:20px;padding:8px;margin-bottom:16px}
   .amountf input{width:100%;font-size:28px;font-weight:800;text-align:center;padding:15px;color:#9c3f74;background:transparent;border:none}
   .field{margin-bottom:13px}
