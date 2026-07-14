@@ -89,8 +89,8 @@ function SpendSheet({ db, insert, update, remove, onClose, showToast, editing })
           </div>
 
           {/* More options - collapsed by default */}
-          <button onClick={() => setShowMore(v => !v)} style={{ fontSize: 11, fontWeight: 700, color: '#9c3f74', background: 'none', border: 'none', padding: '4px 0', marginBottom: 6 }}>
-            {showMore ? '▴ Less options' : '▾ Date & bill options'}
+          <button onClick={() => setShowMore(v => !v)} style={{ fontSize: 12, fontWeight: 800, color: '#9c3f74', background: 'var(--pink-soft)', border: 'none', padding: '8px 14px', borderRadius: 12, marginBottom: 8, width: '100%', textAlign: 'left' }}>
+            {showMore ? '▴ Hide date & bill options' : '▾ Date & bill options'}
           </button>
           {showMore && (
             <div>
@@ -120,7 +120,7 @@ function SpendSheet({ db, insert, update, remove, onClose, showToast, editing })
         </div>
 
         {/* Pinned buttons */}
-        <div style={{ padding: '8px 14px 20px', flexShrink: 0 }}>
+        <div style={{ padding: '8px 14px 34px', flexShrink: 0 }}>
           <button className="apply" onClick={save}>{editing ? 'Save changes ✨' : 'Add spend ✨'}</button>
           <button className="cancel" onClick={onClose} style={{ marginTop: 6 }}>Cancel</button>
           {editing && <button onClick={del} style={{ width: '100%', marginTop: 6, padding: 9, borderRadius: 12, background: 'none', border: 'none', color: '#c0483f', fontWeight: 700, fontSize: 12 }}>🗑 Delete</button>}
@@ -220,7 +220,7 @@ function CSVImport({ db, insert, update, onClose, showToast }) {
             </div>
           ))}
         </div>
-        <div style={{ padding: '8px 14px 20px', flexShrink: 0 }}>
+        <div style={{ padding: '8px 14px 34px', flexShrink: 0 }}>
           <button className="apply" onClick={doImport}>Import {rows.filter((_, i) => cats[i] !== '__skip__').length} transactions ✨</button>
           <button className="cancel" onClick={onClose} style={{ marginTop: 6 }}>Cancel</button>
         </div>
@@ -255,7 +255,7 @@ export default function Spend({ db, insert, update, remove, showToast }) {
         <div className="legend">
           {Object.keys(cats).length === 0 && <div style={{ fontSize: 12, color: 'var(--ink2)' }}>No spending logged yet.</div>}
           {Object.entries(cats).map(([k, v]) => (
-            <div className="lgrow" key={k}><span className="d" style={{ background: colorOf(k) }} /><span className="lname">{k}</span><span className="lv">{money(v)}</span></div>
+            <div className="lgrow" key={k}><span className="d" style={{ background: colorOf(k), width: 10, height: 10, borderRadius: '50%', display: 'inline-block', marginRight: 6, flexShrink: 0 }} /><span className="lname">{k}</span><span className="lv">{money(v)}</span></div>
           ))}
         </div>
       </div>
