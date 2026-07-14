@@ -1,5 +1,4 @@
-import { useState, useEffect } from 'react'
-import { supabase, hasSupabase } from './supabaseClient'
+import { useState } from 'react'
 import { useData } from './useData'
 import Home from './Home.jsx'
 import Bills from './Bills.jsx'
@@ -18,35 +17,13 @@ const TABS = [
 ]
 
 export default function App() {
-  const [session, setSession] = useState(null)
-  const [authReady, setAuthReady] = useState(false)
   const [tab, setTab] = useState('home')
   const [toast, setToast] = useState(null)
-
-  useEffect(() => {
-    if (!hasSupabase) { setAuthReady(true); return }
-    // Try to get existing session first
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (data.session) {
-        setSession(data.session)
-        setAuthReady(true)
-      } else {
-        // No session — sign in anonymously, no email needed
-        const { data: anonData } = await supabase.auth.signInAnonymously()
-        setSession(anonData.session)
-        setAuthReady(true)
-      }
-    })
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s))
-    return () => sub.subscription.unsubscribe()
-  }, [])
+  const { db, setDb, loading, insert, update, remove } = useData()
 
   const showToast = msg => { setToast(msg); setTimeout(() => setToast(null), 2200) }
-  const { db, setDb, loading, insert, update, remove } = useData(authReady ? (session || { user: { id: 'demo' } }) : null)
 
-  if (!authReady || loading || !db) return (
-    <div className="loadwrap"><div className="spin" /></div>
-  )
+  if (loading || !db) return <div className="loadwrap"><div className="spin" /></div>
 
   const api = { db, setDb, insert, update, remove, showToast, go: setTab }
 
@@ -58,7 +35,7 @@ export default function App() {
         {tab === 'spend' && <Spend {...api} />}
         {tab === 'checks' && <Checks {...api} />}
         {tab === 'savings' && <Savings {...api} />}
-        {tab === 'more' && <More {...api} demo={!hasSupabase} />}
+        {tab === 'more' && <More {...api} demo={false} />}
       </div>
       <nav className="nav">
         {TABS.map(([id, e, l]) => (
