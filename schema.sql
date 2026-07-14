@@ -301,3 +301,16 @@ begin
     (uid,'T132549080704','NJ','2025-06-21',16.4,116.4,'pending'),
     (uid,'T122549053451','NJ','2025-06-21',2.3,52.3,'pending');
 end $$;
+
+-- ============================================================
+--  ANONYMOUS AUTH UPDATE
+--  Run this in Supabase SQL Editor to enable no-login access
+-- ============================================================
+
+-- Allow anonymous users to use the seed function
+grant execute on function seed_wealthy_woman() to anon, authenticated;
+
+-- Update RLS policies to allow anonymous users (auth.uid() works for anon sessions too)
+-- No changes needed to existing policies — Supabase anon sessions have a real uid
+-- Just make sure anonymous sign-ins are enabled in your Supabase dashboard:
+-- Authentication -> Providers -> Anonymous -> Enable

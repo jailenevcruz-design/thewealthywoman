@@ -95,15 +95,16 @@ export default function Bills({ db, update, insert, remove, showToast }) {
 
   const deletePayment = async (payment) => {
     if (!window.confirm('Delete this payment? The bill balance will be adjusted.')) return
-    // find the bill and reduce paid amount
     const bill = db.bills.find(b => b.id === payment.bill_id)
+    // remove this payment first, then recalculate from all remaining payments
+    const remaining = billPayments.filter(p => p.id !== payment.id && p.bill_id === payment.bill_id)
+    const newPaid = remaining.reduce((s, p) => s + p.amount, 0)
     if (bill) {
-      const newPaid = Math.max(0, (bill.paid_amount || 0) - payment.amount)
       const status = newPaid <= 0 ? 'unpaid' : newPaid >= bill.amount ? 'paid' : 'partial'
       update('bills', bill.id, { paid_amount: newPaid, status })
     }
     remove('spend', payment.id)
-    showToast('Payment deleted — balance adjusted')
+    showToast('Payment deleted — balance recalculated')
   }
 
   const unsubscribe = b => { update('bills', b.id, { archived: true }); showToast(`${b.name} unsubscribed`) }
