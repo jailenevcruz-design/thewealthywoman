@@ -1,5 +1,40 @@
 import { useState, useRef, useEffect } from 'react'
 import { money, curMonth, todayISO, CATS, guessCategory } from './lib'
+export default function Spend({ db, insert, update, remove, showToast }) {
+  const [sheet, setSheet] = useState(false)
+  const [editing, setEditing] = useState(null)
+  const [csvOpen, setCsvOpen] = useState(false)
+  const scrollRef = useRef()
+  const m = curMonth()
+  const monthSpend = db.spend.filter(s => s.date.slice(0, 7) === m)
+  const total = monthSpend.reduce((s, x) => s + x.amount, 0)
+  const cats = {}; monthSpend.forEach(s => { cats[s.category] = (cats[s.category] || 0) + s.amount })
+const colorOf = c => {
+  if (!c) return '#e5dced';
+  const match = CATS.find(x => x[0].toLowerCase().trim() === c.toLowerCase().trim());
+  if (match) return match[2];
+  
+  // Dynamic fallback so custom categories don't turn purple
+  let hash = 0;
+  for (let i = 0; i < c.length; i++) hash = c.charCodeAt(i) + ((hash << 5) - hash);
+  return `hsl(${Math.abs(hash % 360)}, 65%, 70%)`;
+};
+
+let acc = 0;
+const stops = [];
+Object.entries(cats).forEach(([k, v]) => {
+  const f = (v / total) * 100;
+  const color = colorOf(k);
+
+  
+  // Push the explicit start and end markers for a sharp slice edge
+  stops.push(`${color} ${acc}%`)
+  stops.push(`${color} ${acc + f}%`)
+  
+  acc += f
+})
+  const days = [...new Set(monthSpend.map(s => s.date))].sort().reverse()
+
 
 const CAT_STYLES = { 
   'Groceries': '#e8f5e0',
