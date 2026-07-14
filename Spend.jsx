@@ -240,10 +240,16 @@ function CSVImport({ db, insert, update, onClose, showToast }) {
         ))}
         <button className="apply" onClick={doImport}>Import {rows.filter((_, i) => cats[i] !== '__skip__').length} transactions ✨</button>
         <button className="cancel" onClick={onClose}>Cancel</button>
+                 </div>
+          </div>
+        ))}
+        <button className="apply" onClick={doImport}>Import {rows.filter((_, i) => cats[i] !== '__skip__').length} transactions ✨</button>
+        <button className="cancel" onClick={onClose}>Cancel</button>
       </div>
     </div>
   )
 }
+
 export default function Spend({ db, insert, update, remove, showToast }) {
   const [sheet, setSheet] = useState(false)
   const [editing, setEditing] = useState(null)
@@ -269,8 +275,8 @@ export default function Spend({ db, insert, update, remove, showToast }) {
     stops.push(`${color} ${acc + f}%`);
     acc += f;
   });
-  const days = [...new Set(monthSpend.map(s => s.date))].sort().reverse()
 
+  const days = [...new Set(monthSpend.map(s => s.date))].sort().reverse()
   const openNew = () => { setEditing(null); setSheet(true) }
   const openEdit = s => { setEditing(s); setSheet(true) }
   const closeSheet = () => { setSheet(false); setEditing(null) }
@@ -295,7 +301,7 @@ export default function Spend({ db, insert, update, remove, showToast }) {
           ))}
         </div>
       </div>
-
+      
       {days.map(day => (
         <div key={day}>
           <div className="daylabel">{day === todayISO() ? 'Today' : new Date(day + 'T00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
