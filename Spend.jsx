@@ -254,19 +254,21 @@ export default function Spend({ db, insert, update, remove, showToast }) {
   const monthSpend = db.spend.filter(s => s.date.slice(0, 7) === m)
   const total = monthSpend.reduce((s, x) => s + x.amount, 0)
   const cats = {}; monthSpend.forEach(s => { cats[s.category] = (cats[s.category] || 0) + s.amount })
-  const colorOf = c => (CATS.find(x => x[0] === c) || ['','','#c9b8ee'])[2]
-let acc = 0
-const stops = []
+const colorOf = c => {
+  if (!c) return '#c9b8ee';
+  const match = CATS.find(x => x[0].toLowerCase().trim() === c.toLowerCase().trim());
+  return match ? match[2] : '#c9b8ee';
+};
+
+let acc = 0;
+const stops = [];
 Object.entries(cats).forEach(([k, v]) => {
-  const f = (v / total) * 100
-  const color = colorOf(k)
-  
-  // Push the explicit start and end markers for a sharp slice edge
-  stops.push(`${color} ${acc}%`)
-  stops.push(`${color} ${acc + f}%`)
-  
-  acc += f
-})
+  const f = (v / total) * 100;
+  const color = colorOf(k);
+  stops.push(`${color} ${acc}%`);
+  stops.push(`${color} ${acc + f}%`);
+  acc += f;
+});
   const days = [...new Set(monthSpend.map(s => s.date))].sort().reverse()
 
   const openNew = () => { setEditing(null); setSheet(true) }
