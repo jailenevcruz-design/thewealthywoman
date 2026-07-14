@@ -79,7 +79,7 @@ function SpendSheet({ db, insert, update, remove, onClose, showToast, editing })
 
   return (
     <div className="overlay" style={{ position: 'fixed', inset: 0, zIndex: 100 }} onClick={onClose}>
-      <div className="sheet" style={{ maxHeight: '92vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+      <div className="sheet" style={{ height: '95vh', display: 'flex', flexDirection: 'column', overflowY: 'hidden' }} onClick={e => e.stopPropagation()}>
         <h3>{editing ? 'Edit spend' : 'Log a spend 💸'}</h3>
         <p className="shint">A quick entry — lands in your log and category totals.</p>
         <div className="amountf"><input value={amount} onChange={e => setAmount(e.target.value)} placeholder="$0.00" inputMode="decimal" autoFocus /></div>
@@ -129,9 +129,10 @@ function SpendSheet({ db, insert, update, remove, onClose, showToast, editing })
           )}
         </div>
 
-        <button className="apply" onClick={save}>{editing ? 'Save changes ✨' : 'Add spend ✨'}</button>
-        <button className="cancel" onClick={onClose}>Cancel</button>
-        {editing && <button onClick={del} style={{ width: '100%', marginTop: 10, padding: 12, borderRadius: 14, background: 'none', border: 'none', color: '#c0483f', fontWeight: 700, fontSize: 13 }}>🗑 Delete this entry</button>}
+        <div style={{ flex: 1 }} />
+        <button className="apply" onClick={save} style={{ marginTop: 8 }}>{editing ? 'Save changes ✨' : 'Add spend ✨'}</button>
+        <button className="cancel" onClick={onClose} style={{ marginBottom: 0 }}>Cancel</button>
+        {editing && <button onClick={del} style={{ width: '100%', marginTop: 8, padding: 10, borderRadius: 14, background: 'none', border: 'none', color: '#c0483f', fontWeight: 700, fontSize: 12 }}>🗑 Delete this entry</button>}
       </div>
     </div>
   )
@@ -199,7 +200,7 @@ function CSVImport({ db, insert, update, onClose, showToast }) {
 
   return (
     <div className="overlay" style={{ position: 'fixed', inset: 0, zIndex: 100 }} onClick={onClose}>
-      <div className="sheet" style={{ maxHeight: '92vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+      <div className="sheet" style={{ height: '95vh', display: 'flex', flexDirection: 'column', overflowY: 'hidden' }} onClick={e => e.stopPropagation()}>
         <h3>Review import 📥</h3>
         <p className="shint">{rows.length} transactions found</p>
         <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
