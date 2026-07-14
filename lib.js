@@ -228,21 +228,22 @@ export function pickNudge(db) {
 }
 
 export const CATS = [
-  ['Groceries', '🛒', '#e8f5e0', 'c-groc'],
-  ['Dining', '🍽️', '#fde8df', 'c-dine'],
-  ['Gas', '⛽', '#fef3c7', 'c-gas'],
-  ['Shopping', '🛍️', '#dbeafe', 'c-shop'],
-  ['Auto', '🚗', '#d1fae5', 'c-auto'],
-  ['Housing', '🏠', '#ede9fe', 'c-house'],
-  ['Pet', '🐾', '#fbcfe8', 'c-pet'],
-  ['Subscriptions', '📺', '#f3e8ff', 'c-sub'],
-  ['Pay in 4', '💳', '#fecdd3', 'c-p4'],
-  ['Personal', '💅', '#f4f4f5', 'c-pers'],
-  ['Gifts', '🎁', '#ffedd5', 'c-gift'],
-  ['Health', '🏥', '#cfe2fe', 'c-health'],
-  ['Utilities', '⚡', '#ffeed5', 'c-util'],
-  ['Cards', '💳', '#ccfbf1', 'c-cards'],
-];
+  ['Groceries','🛒','#3d7a3d','c-groc'],
+  ['Dining','🍽️','#c45c2a','c-dine'],
+  ['Gas','⛽','#a07800','c-gas'],
+  ['Shopping','🛍️','#2a5a9e','c-shop'],
+  ['Auto','🚗','#1a7a6a','c-auto'],
+  ['Housing','🏠','#6a3aad','c-house'],
+  ['Pet','🐾','#8a4a10','c-pet'],
+  ['Subscriptions','📺','#a0206a','c-sub'],
+  ['Pay in 4','💳','#b02020','c-p4'],
+  ['Personal','💅','#7a28b8','c-pers'],
+  ['Gifts','🎁','#b05010','c-gift'],
+  ['Health','🏥','#0878a0','c-health'],
+  ['Utilities','⚡','#3a30a0','c-util'],
+  ['Cards','💳','#981030','c-cards'],
+]
+
 // Merchant name → category auto-matcher for CSV import
 export function guessCategory(merchant) {
   const m = merchant.toUpperCase()
