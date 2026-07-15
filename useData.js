@@ -57,6 +57,12 @@ export function useData() {
   }
 
   const update = async (table, id, patch) => {
+    if (table === 'profiles') {
+      // profiles uses user_id as key, update locally and upsert
+      setDb(d => ({ ...d, profile: { ...d.profile, ...patch } }))
+      if (hasSupabase) await supabase.from('ww_profiles').upsert({ id: FIXED_USER_ID, user_id: FIXED_USER_ID, ...patch })
+      return
+    }
     setDb(d => ({ ...d, [table]: d[table].map(x => x.id === id ? { ...x, ...patch } : x) }))
     if (hasSupabase) await supabase.from('ww_' + table).update(patch).eq('id', id)
   }

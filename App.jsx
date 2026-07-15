@@ -21,13 +21,18 @@ export default function App() {
   const [tab, setTab] = useState('home')
   const [toast, setToast] = useState(null)
   const [showSettings, setShowSettings] = useState(false)
-  const [catColors, setCatColors] = useState({})
   const { db, setDb, loading, insert, update, remove } = useData()
 
   const showToast = msg => { setToast(msg); setTimeout(() => setToast(null), 2200) }
 
   if (loading || !db) return <div className="loadwrap"><div className="spin" /></div>
 
+  const catColors = (db?.profile?.cat_colors) || {}
+  const setCatColors = (updater) => {
+    const next = typeof updater === 'function' ? updater(catColors) : updater
+    update('profiles', db.profile?.id || 'cat_colors', { cat_colors: next })
+    setDb(d => ({ ...d, profile: { ...d.profile, cat_colors: next } }))
+  }
   const api = { db, setDb, insert, update, remove, showToast, go: setTab }
 
   return (
