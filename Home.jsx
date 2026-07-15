@@ -5,7 +5,7 @@ function Hero() {
   const [slots] = useState(() => getDailySlots())
   const [i, setI] = useState(0)
   const next = () => setI(x => (x + 1) % 3)
-  useEffect(() => { const t = setInterval(next, 60000); return () => clearInterval(t) }, [])
+  useEffect(() => { const t = setInterval(next, 15000); return () => clearInterval(t) }, [])
   const { quote: q, image } = slots[i]
   return (
     <div>

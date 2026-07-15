@@ -230,7 +230,7 @@ function CSVImport({ db, insert, onClose, showToast }) {
   )
 }
 
-export default function Spend({ db, insert, update, remove, showToast }) {
+export default function Spend({ db, insert, update, remove, showToast, catColors = {} }) {
   const [sheet, setSheet] = useState(false)
   const [editing, setEditing] = useState(null)
   const [csvOpen, setCsvOpen] = useState(false)
@@ -247,14 +247,14 @@ export default function Spend({ db, insert, update, remove, showToast }) {
   const topCats = showAllCats ? sortedCats : sortedCats.slice(0, 5)
   const maxCat = sortedCats[0]?.[1] || 1
 
-  const colorOf = c => { const found = CATS.find(x => x[0] === c); return found ? found[2] : '#c9b8ee' }
+  const colorOf = c => catColors[c] || (CATS.find(x => x[0] === c)?.[2]) || '#c9b8ee'
   const emojiOf = c => { const found = CATS.find(x => x[0] === c); return found ? found[1] : '💸' }
 
   const days = [...new Set(monthSpend.map(s => s.date))].sort().reverse()
 
   return (
     <div className="screen">
-      <div className="pagetitle">Spending 💸</div>
+      <div className="pagetitle">Spending 💸 {Object.keys(catColors).length > 0 ? `(${Object.keys(catColors).length} custom)` : ""}</div>
       <p className="pagesub">{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</p>
 
       {/* Small action buttons */}
