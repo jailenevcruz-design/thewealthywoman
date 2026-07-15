@@ -59,39 +59,39 @@ function SpendSheet({ db, insert, update, remove, onClose, showToast, editing })
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(60,45,70,.45)', display: 'flex', alignItems: 'flex-end' }} onClick={onClose}>
-      <div onClick={e => e.stopPropagation()} style={{ width: '100%', background: 'var(--bg)', borderRadius: '20px 20px 0 0', display: 'flex', flexDirection: 'column', maxHeight: '95vh' }}>
+      <div onClick={e => e.stopPropagation()} style={{ position: 'fixed', bottom: 80, left: 0, right: 0, top: '8vh', background: 'var(--bg)', borderRadius: '20px 20px 0 0', display: 'flex', flexDirection: 'column' }}>
         {/* Fixed header */}
         <div style={{ padding: '12px 14px 8px', flexShrink: 0 }}>
           <div style={{ width: 36, height: 4, background: '#dcd6e0', borderRadius: 2, margin: '0 auto 10px' }} />
-          <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 2 }}>{editing ? 'Edit spend' : 'Log a spend 💸'}</div>
-          <div className="amountf" style={{ margin: '8px 0 6px' }}>
-            <input value={amount} onChange={e => setAmount(e.target.value)} placeholder="$0.00" inputMode="decimal" autoFocus />
+          <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 8 }}>{editing ? 'Edit spend' : 'Log a spend 💸'}</div>
+          <div style={{ background: 'linear-gradient(135deg,var(--pink-soft),var(--lav))', borderRadius: 14, padding: '10px', marginBottom: 8, textAlign: 'center' }}>
+            <input value={amount} onChange={e => setAmount(e.target.value)} placeholder="$0.00" inputMode="decimal" autoFocus style={{ fontSize: 28, fontWeight: 800, color: '#5a3f56', background: 'none', border: 'none', textAlign: 'center', width: '100%', outline: 'none' }} />
           </div>
-          <input value={place} onChange={e => setPlace(e.target.value)} placeholder="Where? e.g. Whole Foods" style={{ width: '100%', padding: '7px 11px', borderRadius: 11, border: '1.5px solid var(--line)', background: '#fff', fontSize: 13, fontWeight: 600, color: '#3a3340', marginBottom: 8 }} />
+          <input value={place} onChange={e => setPlace(e.target.value)} placeholder="Where? e.g. Whole Foods" style={{ width: '100%', padding: '7px 11px', borderRadius: 11, border: '1.5px solid var(--line)', background: '#fff', fontSize: 13, fontWeight: 600, color: '#3a3340' }} />
         </div>
 
-        {/* Scrollable category area */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '0 14px' }}>
+        {/* Scrollable middle */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '8px 14px 0' }}>
           <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--ink2)', letterSpacing: '.5px', textTransform: 'uppercase', marginBottom: 5 }}>Category</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
             {allCats.map(([c, e, col]) => (
               <button key={c} onClick={() => setCat(c)} style={{
-                padding: '5px 8px', borderRadius: 12, fontSize: 10, fontWeight: 700, border: '2px solid',
-                borderColor: cat === c ? col : 'transparent',
+                padding: '5px 9px', borderRadius: 12, fontSize: 11, fontWeight: 700,
+                border: `2px solid ${cat === c ? col : 'transparent'}`,
                 background: cat === c ? col + '22' : '#f4f0f6',
-                color: col, cursor: 'pointer'
+                color: cat === c ? col : '#7a6a84', cursor: 'pointer'
               }}>{e} {c}</button>
             ))}
             {addingCat
               ? <CustomCatBuilder onAdd={(name, emoji, color) => { setCustomCats(p => [...p, { name, emoji, color }]); setCat(name); setAddingCat(false) }} onCancel={() => setAddingCat(false)} />
-              : <button onClick={() => setAddingCat(true)} style={{ padding: '5px 8px', borderRadius: 12, fontSize: 10, fontWeight: 700, border: '1.5px dashed var(--pink)', background: '#fff', color: '#9c3f74', cursor: 'pointer' }}>+ custom</button>
+              : <button onClick={() => setAddingCat(true)} style={{ padding: '5px 9px', borderRadius: 12, fontSize: 11, fontWeight: 700, border: '1.5px dashed var(--pink)', background: '#fff', color: '#9c3f74', cursor: 'pointer' }}>+ custom</button>
             }
           </div>
 
-          {/* More options - collapsed by default */}
           <button onClick={() => setShowMore(v => !v)} style={{ fontSize: 12, fontWeight: 800, color: '#9c3f74', background: 'var(--pink-soft)', border: 'none', padding: '8px 14px', borderRadius: 12, marginBottom: 8, width: '100%', textAlign: 'left' }}>
             {showMore ? '▴ Hide date & bill options' : '▾ Date & bill options'}
           </button>
+
           {showMore && (
             <div>
               <div style={{ marginBottom: 8 }}>
@@ -120,7 +120,7 @@ function SpendSheet({ db, insert, update, remove, onClose, showToast, editing })
         </div>
 
         {/* Pinned buttons */}
-        <div style={{ padding: '8px 14px 34px', flexShrink: 0 }}>
+        <div style={{ padding: '8px 14px 16px', flexShrink: 0, borderTop: '1px solid var(--line)' }}>
           <button className="apply" onClick={save}>{editing ? 'Save changes ✨' : 'Add spend ✨'}</button>
           <button className="cancel" onClick={onClose} style={{ marginTop: 6 }}>Cancel</button>
           {editing && <button onClick={del} style={{ width: '100%', marginTop: 6, padding: 9, borderRadius: 12, background: 'none', border: 'none', color: '#c0483f', fontWeight: 700, fontSize: 12 }}>🗑 Delete</button>}
@@ -130,7 +130,7 @@ function SpendSheet({ db, insert, update, remove, onClose, showToast, editing })
   )
 }
 
-function CSVImport({ db, insert, update, onClose, showToast }) {
+function CSVImport({ db, insert, onClose, showToast }) {
   const [rows, setRows] = useState(null)
   const [cats, setCats] = useState({})
   const fileRef = useRef()
@@ -147,7 +147,7 @@ function CSVImport({ db, insert, update, onClose, showToast }) {
       const parsed = lines.slice(1).map(line => {
         const cols = line.split(',').map(c => c.trim().replace(/"/g, ''))
         const amt = Math.abs(parseFloat(cols[amtIdx] || '0'))
-        if (!amt || amt <= 0) return null
+        if (!amt) return null
         const merchant = cols[descIdx] || 'Unknown'
         return { date: cols[dateIdx] || todayISO(), merchant, amount: amt, guessed: guessCategory(merchant) }
       }).filter(Boolean)
@@ -165,18 +165,19 @@ function CSVImport({ db, insert, update, onClose, showToast }) {
       const catMeta = CATS.find(c => c[0] === cat)
       insert('spend', { place: r.merchant, category: needsCat ? 'Needs category' : cat, emoji: needsCat ? '❓' : (catMeta?.[1] || '💸'), color: needsCat ? '#dcd6e0' : (catMeta?.[2] || '#c9b8ee'), amount: r.amount, date: r.date, bill_id: null, needs_category: needsCat })
     })
-    showToast(`${rows.filter((_, i) => cats[i] !== '__skip__').length} transactions imported ✨`)
+    showToast(`${rows.filter((_, i) => cats[i] !== '__skip__').length} imported ✨`)
     onClose()
   }
 
   if (!rows) return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(60,45,70,.45)', display: 'flex', alignItems: 'flex-end' }} onClick={onClose}>
-      <div onClick={e => e.stopPropagation()} style={{ width: '100%', background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '14px 14px 24px' }}>
-        <h3 style={{ fontSize: 15, marginBottom: 4 }}>Import from bank CSV 📥</h3>
-        <p style={{ fontSize: 10, color: 'var(--ink2)', marginBottom: 14 }}>Download transactions from your bank and upload the CSV file.</p>
+      <div onClick={e => e.stopPropagation()} style={{ width: '100%', background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '14px 14px 32px' }}>
+        <div style={{ width: 36, height: 4, background: '#dcd6e0', borderRadius: 2, margin: '0 auto 12px' }} />
+        <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 4 }}>Import from bank CSV 📥</div>
+        <p style={{ fontSize: 11, color: 'var(--ink2)', marginBottom: 14 }}>Download transactions from your bank and upload the CSV file.</p>
         <div style={{ border: '2px dashed var(--pink)', borderRadius: 16, padding: 24, textAlign: 'center', background: 'var(--pink-soft)', marginBottom: 12 }}>
           <div style={{ fontSize: 28, marginBottom: 8 }}>📂</div>
-          <div style={{ fontSize: 13, fontWeight: 800, color: '#7a2f57', marginBottom: 4 }}>Choose your CSV file</div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: '#7a2f57', marginBottom: 10 }}>Choose your CSV file</div>
           <input ref={fileRef} type="file" accept=".csv" onChange={parseCSV} style={{ display: 'none' }} />
           <button style={{ padding: '10px 20px', borderRadius: 12, background: 'var(--pink)', color: '#fff', fontWeight: 800, fontSize: 13, border: 'none' }} onClick={() => fileRef.current.click()}>Choose file</button>
         </div>
@@ -191,22 +192,22 @@ function CSVImport({ db, insert, update, onClose, showToast }) {
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(60,45,70,.45)', display: 'flex', alignItems: 'flex-end' }} onClick={onClose}>
-      <div onClick={e => e.stopPropagation()} style={{ width: '100%', background: 'var(--bg)', borderRadius: '20px 20px 0 0', maxHeight: '95vh', display: 'flex', flexDirection: 'column' }}>
+      <div onClick={e => e.stopPropagation()} style={{ position: 'fixed', bottom: 80, left: 0, right: 0, top: '8vh', background: 'var(--bg)', borderRadius: '20px 20px 0 0', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '12px 14px 8px', flexShrink: 0 }}>
-          <h3 style={{ fontSize: 15, marginBottom: 2 }}>Review import 📥</h3>
-          <p style={{ fontSize: 10, color: 'var(--ink2)', marginBottom: 8 }}>{rows.length} transactions found</p>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+          <div style={{ width: 36, height: 4, background: '#dcd6e0', borderRadius: 2, margin: '0 auto 10px' }} />
+          <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 2 }}>Review import 📥</div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 8, marginBottom: 8 }}>
             <div style={{ flex: 1, borderRadius: 12, padding: 10, textAlign: 'center', background: 'var(--pink-soft)', color: '#9c3f74' }}><div style={{ fontSize: 15, fontWeight: 800 }}>{rows.length}</div><div style={{ fontSize: 9, fontWeight: 700, marginTop: 2 }}>FOUND</div></div>
             <div style={{ flex: 1, borderRadius: 12, padding: 10, textAlign: 'center', background: 'var(--lav)', color: '#5a52a0' }}><div style={{ fontSize: 15, fontWeight: 800 }}>{money(total)}</div><div style={{ fontSize: 9, fontWeight: 700, marginTop: 2 }}>TOTAL</div></div>
             <div style={{ flex: 1, borderRadius: 12, padding: 10, textAlign: 'center', background: '#e7f2c7', color: '#51691f' }}><div style={{ fontSize: 15, fontWeight: 800 }}>{matched}/{rows.length}</div><div style={{ fontSize: 9, fontWeight: 700, marginTop: 2 }}>MATCHED</div></div>
           </div>
-          {unrecognized > 0 && <div style={{ background: '#fff6ea', border: '1px solid #f5e2c4', borderRadius: 10, padding: '8px 11px', fontSize: 11, color: '#9a6a1a', fontWeight: 600, marginBottom: 8 }}>💛 {unrecognized} will import as "Needs category" — fix later.</div>}
+          {unrecognized > 0 && <div style={{ background: '#fff6ea', border: '1px solid #f5e2c4', borderRadius: 10, padding: '8px 11px', fontSize: 11, color: '#9a6a1a', fontWeight: 600 }}>💛 {unrecognized} will import as "Needs category"</div>}
         </div>
-        <div style={{ flex: 1, overflowY: 'auto', padding: '0 14px' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '8px 14px' }}>
           {rows.map((r, i) => (
             <div key={i} style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 12, padding: 10, marginBottom: 8, opacity: cats[i] === '__skip__' ? .45 : 1 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                <div><div style={{ fontSize: 12, fontWeight: 800 }}>{r.merchant}</div><div style={{ fontSize: 10, color: 'var(--ink2)', marginTop: 1 }}>{r.date}</div></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                <div><div style={{ fontSize: 12, fontWeight: 800 }}>{r.merchant}</div><div style={{ fontSize: 10, color: 'var(--ink2)' }}>{r.date}</div></div>
                 <div style={{ fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 800, color: '#c0483f' }}>${r.amount.toFixed(2)}</div>
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
@@ -220,7 +221,7 @@ function CSVImport({ db, insert, update, onClose, showToast }) {
             </div>
           ))}
         </div>
-        <div style={{ padding: '8px 14px 34px', flexShrink: 0 }}>
+        <div style={{ padding: '8px 14px 16px', flexShrink: 0, borderTop: '1px solid var(--line)' }}>
           <button className="apply" onClick={doImport}>Import {rows.filter((_, i) => cats[i] !== '__skip__').length} transactions ✨</button>
           <button className="cancel" onClick={onClose} style={{ marginTop: 6 }}>Cancel</button>
         </div>
@@ -233,53 +234,91 @@ export default function Spend({ db, insert, update, remove, showToast }) {
   const [sheet, setSheet] = useState(false)
   const [editing, setEditing] = useState(null)
   const [csvOpen, setCsvOpen] = useState(false)
+  const [showAllCats, setShowAllCats] = useState(false)
+
   const m = curMonth()
   const monthSpend = db.spend.filter(s => s.date.slice(0, 7) === m)
   const total = monthSpend.reduce((s, x) => s + x.amount, 0)
-  const cats = {}; monthSpend.forEach(s => { cats[s.category] = (cats[s.category] || 0) + s.amount })
+
+  // category totals
+  const catTotals = {}
+  monthSpend.forEach(s => { catTotals[s.category] = (catTotals[s.category] || 0) + s.amount })
+  const sortedCats = Object.entries(catTotals).sort((a, b) => b[1] - a[1])
+  const topCats = showAllCats ? sortedCats : sortedCats.slice(0, 5)
+  const maxCat = sortedCats[0]?.[1] || 1
+
   const colorOf = c => { const found = CATS.find(x => x[0] === c); return found ? found[2] : '#c9b8ee' }
-  let acc = 0
-  const stops = Object.entries(cats).map(([k, v]) => { const f = v / total * 100; const s = `${colorOf(k)} ${acc}% ${acc + f}%`; acc += f; return s })
+  const emojiOf = c => { const found = CATS.find(x => x[0] === c); return found ? found[1] : '💸' }
+
   const days = [...new Set(monthSpend.map(s => s.date))].sort().reverse()
 
   return (
     <div className="screen">
       <div className="pagetitle">Spending 💸</div>
-      <p className="pagesub">Everything you spend, in one place</p>
-      <button className="paybtn" onClick={() => { setEditing(null); setSheet(true) }} style={{ marginBottom: 10 }}>+ Log a spend ✨</button>
-      <button style={{ width: '100%', marginBottom: 16, padding: 12, borderRadius: 14, border: '1.5px solid var(--lav)', background: 'var(--lav)', color: '#5a52a0', fontWeight: 800, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }} onClick={() => setCsvOpen(true)}>📥 Import from bank CSV</button>
-      <div className="summary">
-        <div className="donut" style={{ background: total > 0 ? `conic-gradient(${stops.join(',')})` : '#e5dced' }}>
-          <b><span>{money(total)}</span>this month</b>
-        </div>
-        <div className="legend">
-          {Object.keys(cats).length === 0 && <div style={{ fontSize: 12, color: 'var(--ink2)' }}>No spending logged yet.</div>}
-          {Object.entries(cats).map(([k, v]) => (
-            <div className="lgrow" key={k}><span className="d" style={{ background: colorOf(k), width: 10, height: 10, borderRadius: '50%', display: 'inline-block', marginRight: 6, flexShrink: 0 }} /><span className="lname">{k}</span><span className="lv">{money(v)}</span></div>
-          ))}
-        </div>
+      <p className="pagesub">{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</p>
+
+      {/* Small action buttons */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        <button onClick={() => { setEditing(null); setSheet(true) }} style={{ flex: 1, padding: '9px 12px', borderRadius: 12, fontSize: 13, fontWeight: 800, border: 'none', background: 'var(--pink)', color: '#fff', cursor: 'pointer' }}>✨ Log a spend</button>
+        <button onClick={() => setCsvOpen(true)} style={{ flex: 1, padding: '9px 12px', borderRadius: 12, fontSize: 13, fontWeight: 800, border: 'none', background: 'var(--lav)', color: '#5a52a0', cursor: 'pointer' }}>📥 Import CSV</button>
       </div>
+
+      {/* Month summary with bar chart */}
+      <div style={{ background: 'linear-gradient(135deg,#fdeef5,#eee7fb)', borderRadius: 18, padding: 16, marginBottom: 16 }}>
+        <div style={{ fontSize: 30, fontWeight: 800, color: '#5a3f56', marginBottom: 2 }}>{money(total)}</div>
+        <div style={{ fontSize: 11, color: '#9d8fa8', marginBottom: 14 }}>spent this month · {sortedCats.length} categories</div>
+        {topCats.map(([cat, amt]) => (
+          <div key={cat} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: colorOf(cat), flexShrink: 0 }} />
+            <div style={{ fontSize: 11, fontWeight: 600, color: '#5a3f56', width: 90, flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cat}</div>
+            <div style={{ flex: 1, height: 6, background: 'rgba(0,0,0,.08)', borderRadius: 3, overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${Math.round(amt / maxCat * 100)}%`, background: colorOf(cat), borderRadius: 3 }} />
+            </div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#5a3f56', minWidth: 40, textAlign: 'right' }}>{money(amt)}</div>
+          </div>
+        ))}
+        {sortedCats.length > 5 && (
+          <button onClick={() => setShowAllCats(v => !v)} style={{ fontSize: 11, fontWeight: 700, color: '#9c3f74', background: 'none', border: 'none', padding: '4px 0', marginTop: 4, cursor: 'pointer' }}>
+            {showAllCats ? '▴ Show less' : `▾ + ${sortedCats.length - 5} more categories`}
+          </button>
+        )}
+      </div>
+
+      {/* Daily entries */}
       {days.map(day => (
         <div key={day}>
-          <div className="daylabel">{day === todayISO() ? 'Today' : new Date(day + 'T00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
+          <div className="daylabel">{day === todayISO() ? 'Today' : new Date(day + 'T00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</div>
           <div className="card">
             {monthSpend.filter(s => s.date === day).map(s => (
-              <button className="erow" key={s.id} onClick={() => { setEditing(s); setSheet(true) }} style={{ width: '100%', textAlign: 'left', background: s.needs_category ? '#fff6ea' : 'none', border: 'none', borderBottom: '1px solid var(--line)' }}>
-                <div className="eleft">
-                  <div className="cdot" style={{ background: colorOf(s.category) + '22' }}>{s.emoji}</div>
-                  <div>
-                    <div className="nm">{s.place || s.category}</div>
-                    <div className="mt">{s.category}{s.needs_category && <span style={{ fontSize: 9, fontWeight: 800, color: '#9a6a1a', background: '#fff6ea', padding: '1px 6px', borderRadius: 8, marginLeft: 5 }}>needs category</span>}{s.bill_id && <span className="feeds">→ Bill</span>}</div>
+              <button key={s.id} onClick={() => { setEditing(s); setSheet(true) }} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', background: s.needs_category ? '#fff6ea' : 'none', border: 'none', borderBottom: '1px solid var(--line)', cursor: 'pointer' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: 10, background: colorOf(s.category) + '22', display: 'grid', placeItems: 'center', fontSize: 14, flexShrink: 0 }}>{s.emoji || emojiOf(s.category)}</div>
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#3a3340' }}>{s.place || s.category}</div>
+                    <div style={{ fontSize: 10, color: '#9d8fa8', marginTop: 1 }}>
+                      {s.category}
+                      {s.needs_category && <span style={{ fontSize: 9, fontWeight: 800, color: '#9a6a1a', background: '#fff6ea', padding: '1px 6px', borderRadius: 8, marginLeft: 5 }}>needs category</span>}
+                      {s.bill_id && <span style={{ fontSize: 9, fontWeight: 800, color: '#3b8f6a', marginLeft: 5 }}>→ Bill</span>}
+                    </div>
                   </div>
                 </div>
-                <div className="amt">{money(s.amount, 2)}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#3a3340', fontFamily: 'var(--mono)' }}>{money(s.amount, 2)}</div>
               </button>
             ))}
           </div>
         </div>
       ))}
+
+      {monthSpend.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--ink2)' }}>
+          <div style={{ fontSize: 32, marginBottom: 10 }}>💸</div>
+          <div style={{ fontSize: 14, fontWeight: 700 }}>No spending logged yet</div>
+          <div style={{ fontSize: 12, marginTop: 4 }}>Tap "Log a spend" to get started</div>
+        </div>
+      )}
+
       {sheet && <SpendSheet db={db} insert={insert} update={update} remove={remove} showToast={showToast} editing={editing} onClose={() => { setSheet(false); setEditing(null) }} />}
-      {csvOpen && <CSVImport db={db} insert={insert} update={update} showToast={showToast} onClose={() => setCsvOpen(false)} />}
+      {csvOpen && <CSVImport db={db} insert={insert} showToast={showToast} onClose={() => setCsvOpen(false)} />}
     </div>
   )
 }

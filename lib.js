@@ -228,20 +228,20 @@ export function pickNudge(db) {
 }
 
 export const CATS = [
-  ['Groceries','🛒','#2e8b2e','c-groc'],
-  ['Dining','🍽️','#d4522a','c-dine'],
-  ['Gas','⛽','#b8860b','c-gas'],
-  ['Shopping','🛍️','#2255b8','c-shop'],
-  ['Auto','🚗','#0d7a6a','c-auto'],
-  ['Housing','🏠','#6a22cc','c-house'],
-  ['Pet','🐾','#9b4400','c-pet'],
-  ['Subscriptions','📺','#c4006a','c-sub'],
-  ['Pay in 4','💳','#cc1818','c-p4'],
-  ['Personal','💅','#8b10cc','c-pers'],
-  ['Gifts','🎁','#cc5500','c-gift'],
-  ['Health','🏥','#0088bb','c-health'],
-  ['Utilities','⚡','#2244bb','c-util'],
-  ['Cards','💳','#bb0028','c-cards'],
+  ['Groceries','🛒','#4CAF50','c-groc'],
+  ['Dining','🍽️','#FF7043','c-dine'],
+  ['Gas','⛽','#FFA726','c-gas'],
+  ['Shopping','🛍️','#42A5F5','c-shop'],
+  ['Auto','🚗','#26A69A','c-auto'],
+  ['Housing','🏠','#7E57C2','c-house'],
+  ['Pet','🐾','#A1887F','c-pet'],
+  ['Subscriptions','📺','#EC407A','c-sub'],
+  ['Pay in 4','💳','#EF5350','c-p4'],
+  ['Personal','💅','#AB47BC','c-pers'],
+  ['Gifts','🎁','#FF8A65','c-gift'],
+  ['Health','🏥','#29B6F6','c-health'],
+  ['Utilities','⚡','#5C6BC0','c-util'],
+  ['Cards','💳','#E53935','c-cards'],
 ]
 
 // Merchant name → category auto-matcher for CSV import
