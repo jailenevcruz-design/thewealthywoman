@@ -276,7 +276,7 @@ function PlanMonth({ db, allChecks, update, showToast }) {
                 <div style={{ padding: '12px 14px', fontSize: 12, color: 'var(--ink2)' }}>No bills assigned here</div>
               )}
               {billsHere.map(b => (
-                <button key={b.id} onClick={() => setAssignSheet({ bill: b, currentSlot: slot })} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid var(--line)', background: 'none', border: 'none', borderBottom: '1px solid var(--line)', cursor: 'pointer', textAlign: 'left' }}>
+                <button key={b.id} onClick={() => setAssignSheet({ bill: b, currentSlot: slot })} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid var(--line)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <div style={{ width: 22, height: 22, borderRadius: 7, background: b.autopay ? '#e0f2fe' : 'var(--lav)', color: b.autopay ? '#0878a0' : '#5a52a0', fontSize: 9, fontWeight: 800, display: 'grid', placeItems: 'center', flexShrink: 0 }}>{b.autopay ? 'A' : slot+1}</div>
                     <div>
