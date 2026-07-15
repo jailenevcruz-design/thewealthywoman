@@ -229,7 +229,14 @@ function PlanMonth({ db, allChecks, update, showToast }) {
   const [assignSheet, setAssignSheet] = useState(null)
   const m = curMonth()
   const monthChecks = [...allChecks].filter(c => c.date.slice(0,7) === m).sort((a,b) => a.date.localeCompare(b.date))
-  const totalChecks = monthChecks.length || 4
+  // Count Thursdays in the month to determine expected check count
+  const [yr, mo] = m.split('-').map(Number)
+  const daysInMonth = new Date(yr, mo, 0).getDate()
+  let thursdayCount = 0
+  for (let d = 1; d <= daysInMonth; d++) {
+    if (new Date(yr, mo-1, d).getDay() === 4) thursdayCount++
+  }
+  const totalChecks = thursdayCount
   const slots = Array.from({ length: totalChecks }, (_, i) => i)
 
   const handleAssign = (bill, newSlot) => {

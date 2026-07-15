@@ -35,7 +35,7 @@ export default function App() {
       <div className="appscroll">
         {tab === 'home' && <Home {...api} />}
         {tab === 'bills' && <Bills {...api} />}
-        {tab === 'spend' && <Spend {...api} catColors={catColors} />}
+        {tab === 'spend' && <Spend {...api} catColors={catColors} setCatColors={setCatColors} />}
         {tab === 'checks' && <Checks {...api} />}
         {tab === 'savings' && <Savings {...api} />}
         {tab === 'more' && <More {...api} demo={false} />}
@@ -49,7 +49,7 @@ export default function App() {
       </nav>
       {toast && <div className="toast">{toast}</div>}
       {showSettings && <Settings catColors={catColors} setCatColors={setCatColors} onClose={() => setShowSettings(false)} />}
-      <button onClick={() => setShowSettings(true)} style={{ position: 'fixed', top: 14, right: 18, zIndex: 99, background: 'none', border: 'none', fontSize: 20, cursor: 'pointer' }}>⚙️</button>
+      <button onClick={() => setShowSettings(true)} style={{ position: 'fixed', top: 14, right: 'max(18px, calc(50vw - 195px + 18px))', zIndex: 99, background: 'rgba(255,255,255,.9)', backdropFilter: 'blur(8px)', border: '1px solid var(--line)', borderRadius: '50%', width: 36, height: 36, fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>⚙️</button>
     </div>
   )
 }
