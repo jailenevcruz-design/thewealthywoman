@@ -179,6 +179,27 @@ function ThisWeek({ check, db, update, insert, remove, showToast, debtExtra }) {
         })}
       </div>
 
+      {/* One-time items this check */}
+      {(() => {
+        const m = check.date.slice(0,7)
+        const monthChecks = [...db.checks].filter(c => c.date.slice(0,7) === m).sort((a,b) => a.date.localeCompare(b.date))
+        const idx = Math.max(0, monthChecks.findIndex(c => c.id === check.id))
+        const items = (db.one_time_items || []).filter(i => i.month === m && i.check_slot === idx)
+        if (items.length === 0) return null
+        return (
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--ink2)', letterSpacing: '.5px', marginBottom: 8 }}>ONE-TIME ITEMS</div>
+            <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 14, overflow: 'hidden' }}>
+              {items.map((item, idx2) => (
+                <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderBottom: idx2 < items.length-1 ? '1px solid var(--line)' : 'none' }}>
+                  <div style={{ fontSize: 12, fontWeight: 700 }}>✨ {item.name}</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--mono)' }}>{money(item.amount, 2)}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      })()}
       {focusDebt && (
         <div>
           <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--ink2)', letterSpacing: '.5px', marginBottom: 8 }}>DEBT PAYMENT THIS CHECK</div>
@@ -216,22 +237,15 @@ function ThisWeek({ check, db, update, insert, remove, showToast, debtExtra }) {
 
 function PlanMonth({ db, update, insert, remove, showToast }) {
   const [assignSheet, setAssignSheet] = useState(null)
-  const [addingItem, setAddingItem] = useState(null) // slot number
-  const [oneTimeItems, setOneTimeItems] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('ww_one_time_items') || '[]') } catch(e) { return [] }
-  })
-  const saveItems = (items) => {
-    setOneTimeItems(items)
-    try { localStorage.setItem('ww_one_time_items', JSON.stringify(items)) } catch(e) {}
-  }
+  const [addingItem, setAddingItem] = useState(null)
+  const oneTimeItems = (db.one_time_items || []).filter(i => i.month === curMonth())
   const addItem = (slot, name, amount) => {
-    const items = [...oneTimeItems, { id: Date.now(), slot, name, amount: +amount || 0 }]
-    saveItems(items)
+    insert('one_time_items', { name, amount: +amount || 0, check_slot: slot, month: curMonth() })
     setAddingItem(null)
     showToast(`${name} added to Check ${slot + 1}`)
   }
   const removeItem = (id) => {
-    saveItems(oneTimeItems.filter(i => i.id !== id))
+    remove('one_time_items', id)
   }
   const m = curMonth()
   const thursdays = getMonthThursdays(m)
@@ -290,7 +304,7 @@ function PlanMonth({ db, update, insert, remove, showToast }) {
                 </button>
               ))}
               {/* One-time items for this slot */}
-              {oneTimeItems.filter(i => i.slot === slot).map(item => (
+              {oneTimeItems.filter(i => i.check_slot === slot).map(item => (
                 <div key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: '#fffbf0', borderTop: '1px solid var(--line)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <div style={{ width: 22, height: 22, borderRadius: 7, background: '#fff3dc', color: '#9a6a1a', fontSize: 11, display: 'grid', placeItems: 'center', flexShrink: 0 }}>✨</div>
@@ -306,10 +320,10 @@ function PlanMonth({ db, update, insert, remove, showToast }) {
                 </div>
               ))}
               <div style={{ padding: '8px 14px', background: '#f8f4fb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, fontWeight: 700 }}>
-                <span style={{ color: 'var(--ink2)' }}>{billsHere.length} bills{oneTimeItems.filter(i => i.slot === slot).length > 0 ? ` + ${oneTimeItems.filter(i => i.slot === slot).length} one-time` : ''}</span>
+                <span style={{ color: 'var(--ink2)' }}>{billsHere.length} bills{oneTimeItems.filter(i => i.check_slot === slot).length > 0 ? ` + ${oneTimeItems.filter(i => i.check_slot === slot).length} one-time` : ''}</span>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <button onClick={() => setAddingItem(slot)} style={{ fontSize: 10, fontWeight: 800, color: '#9a6a1a', background: '#fff3dc', border: 'none', borderRadius: 8, padding: '4px 9px', cursor: 'pointer' }}>+ add item</button>
-                  <span style={{ color: '#5a3f56', fontFamily: 'var(--mono)' }}>{money(total + oneTimeItems.filter(i => i.slot === slot).reduce((s, i) => s + i.amount, 0), 2)}</span>
+                  <span style={{ color: '#5a3f56', fontFamily: 'var(--mono)' }}>{money(total + oneTimeItems.filter(i => i.check_slot === slot).reduce((s, i) => s + i.amount, 0), 2)}</span>
                 </div>
               </div>
             </div>
