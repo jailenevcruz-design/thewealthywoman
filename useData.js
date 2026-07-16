@@ -29,7 +29,24 @@ export function useData() {
   const [db, setDb] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  const checkMonthReset = async () => {
+    if (!hasSupabase) return
+    const currentMonth = new Date().toISOString().slice(0, 7)
+    // Check last reset month from profile
+    const { data: prof } = await supabase.from('ww_profiles').select('last_reset_month').eq('id', FIXED_USER_ID).maybeSingle()
+    if (prof && prof.last_reset_month !== currentMonth) {
+      // New month — reset all bills to unpaid and clear paid amounts
+      await supabase.from('ww_bills')
+        .update({ status: 'unpaid', paid_amount: 0 })
+        .eq('user_id', FIXED_USER_ID)
+        .eq('archived', false)
+      // Save current month as last reset
+      await supabase.from('ww_profiles').update({ last_reset_month: currentMonth }).eq('id', FIXED_USER_ID)
+    }
+  }
+
   const loadAll = useCallback(async () => {
+    await checkMonthReset()
     if (!hasSupabase) { setDb(buildDemo()); setLoading(false); return }
     setLoading(true)
     const tables = ['bills','spend','checks','accounts','goals','deposits','debts','debt_payments','violations','credit_scores','saved_tips']
