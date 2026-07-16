@@ -33,7 +33,7 @@ function getMonthThursdays(m) {
   return thursdays
 }
 
-function ThisWeek({ check, db, update, insert, showToast, debtExtra }) {
+function ThisWeek({ check, db, update, insert, remove, showToast, debtExtra }) {
   const [assignSheet, setAssignSheet] = useState(null)
   const allChecks = db.checks
   const m = check.date.slice(0, 7)
@@ -53,9 +53,18 @@ function ThisWeek({ check, db, update, insert, showToast, debtExtra }) {
   const focusDebt = debts[0]
 
   const markPaid = (bill) => {
-    update('bills', bill.id, { status: 'paid', paid_amount: bill.amount })
-    insert('spend', { place: bill.name, category: bill.grp || 'Housing', emoji: '🧾', color: '#a89be6', amount: bill.amount, date: todayISO(), bill_id: bill.id })
-    showToast(`${bill.name} marked paid ✨`)
+    const isPaid = bill.status === 'paid' || (bill.paid_amount || 0) >= bill.amount
+    if (isPaid) {
+      // Revert — remove linked spend entry and reset bill
+      const linked = db.spend.find(s => s.bill_id === bill.id)
+      if (linked) remove('spend', linked.id)
+      update('bills', bill.id, { status: 'unpaid', paid_amount: 0 })
+      showToast(`${bill.name} reverted to unpaid`)
+    } else {
+      update('bills', bill.id, { status: 'paid', paid_amount: bill.amount })
+      insert('spend', { place: bill.name, category: bill.grp || 'Housing', emoji: '🧾', color: '#a89be6', amount: bill.amount, date: todayISO(), bill_id: bill.id })
+      showToast(`${bill.name} marked paid ✨`)
+    }
   }
 
   const logDebtPayment = (debt, amt) => {
@@ -95,7 +104,7 @@ function ThisWeek({ check, db, update, insert, showToast, debtExtra }) {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--mono)', color: isPaid ? '#3b8f6a' : 'var(--ink)' }}>{money(splitAmt, 2)}</div>
-                {!isPaid && <button onClick={() => markPaid(b)} style={{ fontSize: 10, fontWeight: 800, color: '#3b8f6a', background: '#e1f5ee', border: 'none', borderRadius: 8, padding: '4px 10px', cursor: 'pointer' }}>pay</button>}
+                <button onClick={() => markPaid(b)} style={{ fontSize: 10, fontWeight: 800, color: isPaid ? '#c0483f' : '#3b8f6a', background: isPaid ? '#fee2e2' : '#e1f5ee', border: 'none', borderRadius: 8, padding: '4px 10px', cursor: 'pointer' }}>{isPaid ? 'undo' : 'pay'}</button>
               </div>
             </div>
           )
@@ -374,7 +383,7 @@ export default function Checks({ db, insert, update, showToast }) {
               </div>
               <button onClick={() => setPill('log')} style={{ fontSize: 12, fontWeight: 800, color: '#5a52a0', background: 'var(--lav)', border: 'none', borderRadius: 20, padding: '6px 14px', cursor: 'pointer' }}>+ Log new</button>
             </div>
-            <ThisWeek check={last} db={db} update={update} insert={insert} showToast={showToast} debtExtra={debtExtra} />
+            <ThisWeek check={last} db={db} update={update} insert={insert} remove={remove} showToast={showToast} debtExtra={debtExtra} />
           </div>
         ) : (
           <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--ink2)' }}>

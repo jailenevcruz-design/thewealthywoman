@@ -161,7 +161,7 @@ function Debts({ db, update, insert, showToast }) {
       <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--pink)', letterSpacing: '.5px', marginBottom: 10 }}>ALL DEBTS · TAP TO EDIT</div>
       <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 16, overflow: 'hidden', marginBottom: 14 }}>
         {debts.map((d, i) => (
-          <button key={d.id} onClick={() => setEditingDebt(d)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', borderBottom: i < debts.length-1 ? '1px solid var(--line)' : 'none', background: 'none', border: 'none', borderBottom: i < debts.length-1 ? '1px solid var(--line)' : 'none', cursor: 'pointer', textAlign: 'left' }}>
+          <button key={d.id} onClick={() => setEditingDebt(d)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', borderBottom: i < debts.length-1 ? '1px solid var(--line)' : 'none', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <div style={{ width: 22, height: 22, borderRadius: 7, background: i === 0 ? 'var(--pink)' : 'var(--pink-soft)', color: i === 0 ? '#fff' : '#9c3f74', fontSize: 11, fontWeight: 800, display: 'grid', placeItems: 'center', flexShrink: 0 }}>{i+1}</div>
               <div>
