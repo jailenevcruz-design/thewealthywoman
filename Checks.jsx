@@ -214,8 +214,25 @@ function ThisWeek({ check, db, update, insert, remove, showToast, debtExtra }) {
   )
 }
 
-function PlanMonth({ db, update, showToast }) {
+function PlanMonth({ db, update, insert, remove, showToast }) {
   const [assignSheet, setAssignSheet] = useState(null)
+  const [addingItem, setAddingItem] = useState(null) // slot number
+  const [oneTimeItems, setOneTimeItems] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('ww_one_time_items') || '[]') } catch(e) { return [] }
+  })
+  const saveItems = (items) => {
+    setOneTimeItems(items)
+    try { localStorage.setItem('ww_one_time_items', JSON.stringify(items)) } catch(e) {}
+  }
+  const addItem = (slot, name, amount) => {
+    const items = [...oneTimeItems, { id: Date.now(), slot, name, amount: +amount || 0 }]
+    saveItems(items)
+    setAddingItem(null)
+    showToast(`${name} added to Check ${slot + 1}`)
+  }
+  const removeItem = (id) => {
+    saveItems(oneTimeItems.filter(i => i.id !== id))
+  }
   const m = curMonth()
   const thursdays = getMonthThursdays(m)
   const totalChecks = thursdays.length
@@ -272,14 +289,51 @@ function PlanMonth({ db, update, showToast }) {
                   </div>
                 </button>
               ))}
-              <div style={{ padding: '8px 14px', background: '#f8f4fb', display: 'flex', justifyContent: 'space-between', fontSize: 11, fontWeight: 700 }}>
-                <span style={{ color: 'var(--ink2)' }}>{billsHere.length} bills</span>
-                <span style={{ color: '#5a3f56', fontFamily: 'var(--mono)' }}>{money(total, 2)}</span>
+              {/* One-time items for this slot */}
+              {oneTimeItems.filter(i => i.slot === slot).map(item => (
+                <div key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: '#fffbf0', borderTop: '1px solid var(--line)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ width: 22, height: 22, borderRadius: 7, background: '#fff3dc', color: '#9a6a1a', fontSize: 11, display: 'grid', placeItems: 'center', flexShrink: 0 }}>✨</div>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)' }}>{item.name}</div>
+                      <div style={{ fontSize: 10, color: '#9a6a1a' }}>one-time</div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--mono)' }}>{money(item.amount, 2)}</div>
+                    <button onClick={() => removeItem(item.id)} style={{ fontSize: 10, color: '#c0483f', background: '#fee2e2', border: 'none', borderRadius: 8, padding: '3px 8px', cursor: 'pointer' }}>✕</button>
+                  </div>
+                </div>
+              ))}
+              <div style={{ padding: '8px 14px', background: '#f8f4fb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, fontWeight: 700 }}>
+                <span style={{ color: 'var(--ink2)' }}>{billsHere.length} bills{oneTimeItems.filter(i => i.slot === slot).length > 0 ? ` + ${oneTimeItems.filter(i => i.slot === slot).length} one-time` : ''}</span>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <button onClick={() => setAddingItem(slot)} style={{ fontSize: 10, fontWeight: 800, color: '#9a6a1a', background: '#fff3dc', border: 'none', borderRadius: 8, padding: '4px 9px', cursor: 'pointer' }}>+ add item</button>
+                  <span style={{ color: '#5a3f56', fontFamily: 'var(--mono)' }}>{money(total + oneTimeItems.filter(i => i.slot === slot).reduce((s, i) => s + i.amount, 0), 2)}</span>
+                </div>
               </div>
             </div>
           </div>
         )
       })}
+      {addingItem !== null && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(60,45,70,.45)', display: 'flex', alignItems: 'flex-end' }} onClick={() => setAddingItem(null)}>
+          <div onClick={e => e.stopPropagation()} style={{ width: '100%', background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '14px 16px 32px' }}>
+            <div style={{ width: 36, height: 4, background: '#dcd6e0', borderRadius: 2, margin: '0 auto 12px' }} />
+            <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 4 }}>Add one-time item ✨</div>
+            <div style={{ fontSize: 12, color: 'var(--ink2)', marginBottom: 16 }}>Check {addingItem + 1} · Affirm, gifts, dinners, anything coming up</div>
+            <div className="field"><label>What is it?</label><input id="oname" placeholder="e.g. Affirm payment, Birthday dinner" style={{ width: '100%', padding: '9px 12px', borderRadius: 12, border: '1.5px solid var(--line)', fontSize: 14, fontWeight: 600 }} /></div>
+            <div className="field"><label>Amount</label><input id="oamt" type="number" step="0.01" placeholder="0.00" inputMode="decimal" style={{ width: '100%', padding: '9px 12px', borderRadius: 12, border: '1.5px solid var(--line)', fontSize: 14 }} /></div>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+              {Array.from({ length: thursdays.length }, (_, i) => (
+                <button key={i} onClick={() => setAddingItem(i)} style={{ flex: 1, padding: '8px', borderRadius: 10, fontWeight: 800, fontSize: 12, border: 'none', background: addingItem === i ? 'var(--pink)' : 'var(--lav)', color: addingItem === i ? '#fff' : '#5a52a0', cursor: 'pointer' }}>Check {i+1}</button>
+              ))}
+            </div>
+            <button onClick={() => { const n = document.getElementById('oname').value; const a = document.getElementById('oamt').value; if (n && a) addItem(addingItem, n, a) }} style={{ width: '100%', padding: 13, borderRadius: 14, background: '#fff3dc', border: '1.5px solid #f5e2c4', color: '#9a6a1a', fontWeight: 800, fontSize: 14, cursor: 'pointer', marginBottom: 8 }}>Add to Check {addingItem + 1} ✨</button>
+            <button onClick={() => setAddingItem(null)} style={{ width: '100%', padding: 11, borderRadius: 14, background: '#fff', border: '1.5px solid var(--line)', color: 'var(--ink2)', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>Cancel</button>
+          </div>
+        </div>
+      )}
       {assignSheet && <BillAssignSheet bill={assignSheet.bill} totalChecks={totalChecks} currentSlot={assignSheet.currentSlot} onAssign={handleAssign} onSplit={handleSplit} onClose={() => setAssignSheet(null)} />}
     </div>
   )
@@ -362,7 +416,7 @@ export default function Checks({ db, insert, update, remove, showToast }) {
         </div>
       )}
 
-      {pill === 'plan' && <PlanMonth db={db} update={update} showToast={showToast} />}
+      {pill === 'plan' && <PlanMonth db={db} update={update} insert={insert} remove={remove} showToast={showToast} />}
 
       {pill === 'log' && (
         <div>
