@@ -96,8 +96,8 @@ function ThisWeek({ check, db, update, insert, remove, showToast, debtExtra }) {
   const checkIdx = Math.max(0, monthChecks.findIndex(c => c.id === check.id))
   const totalChecks = getMonthThursdays(m).length || 4
   const billsForCheck = getBillsForCheck(checkIdx, totalChecks, db.bills)
-  const totalBills = billsForCheck.reduce((s, b) => s + (b.split_amt !== undefined ? b.split_amt : b.amount), 0)
-  const paidTotal = billsForCheck.reduce((s, b) => s + (b.status === 'paid' ? (b.split_amt || b.amount) : b.paid_amount || 0), 0)
+  const totalBills = billsForCheck.reduce((s, b) => s + (b.split_amt && b.split_amt > 0 ? b.split_amt : b.amount), 0)
+  const paidTotal = billsForCheck.reduce((s, b) => s + (b.status === 'paid' ? (b.split_amt && b.split_amt > 0 ? b.split_amt : b.amount) : b.paid_amount || 0), 0)
   const paidCount = billsForCheck.filter(b => b.status === 'paid' || (b.paid_amount||0) >= b.amount).length
   const pctPaid = totalBills > 0 ? Math.round(paidTotal / totalBills * 100) : 0
   const leftAfterBills = check.net - totalBills
@@ -139,7 +139,7 @@ function ThisWeek({ check, db, update, insert, remove, showToast, debtExtra }) {
         {billsForCheck.length === 0 && <div style={{ padding: 14, fontSize: 12, color: 'var(--ink2)' }}>No bills assigned — go to Plan month to assign</div>}
         {billsForCheck.map((b, idx) => {
           const isPaid = b.status === 'paid' || (b.paid_amount||0) >= b.amount
-          const splitAmt = b.split_amt !== undefined ? b.split_amt : b.amount
+          const splitAmt = b.split_amt && b.split_amt > 0 ? b.split_amt : b.amount
           return (
             <div key={b.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderBottom: idx < billsForCheck.length - 1 ? '1px solid var(--line)' : 'none' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -229,7 +229,7 @@ function PlanMonth({ db, update, showToast }) {
       {Array.from({ length: totalChecks }, (_, slot) => {
         const check = monthChecks[slot]
         const billsHere = getBillsForCheck(slot, totalChecks, db.bills)
-        const total = billsHere.reduce((s, b) => s + (b.split_amt !== undefined ? b.split_amt : b.amount), 0)
+        const total = billsHere.reduce((s, b) => s + (b.split_amt && b.split_amt > 0 ? b.split_amt : b.amount), 0)
         const dateStr = new Date(yr, mo-1, thursdays[slot]).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
         return (
           <div key={slot} style={{ marginBottom: 16 }}>
@@ -249,7 +249,7 @@ function PlanMonth({ db, update, showToast }) {
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--mono)' }}>{money(b.split_amt !== undefined ? b.split_amt : b.amount, 2)}</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--mono)' }}>{money(b.split_amt && b.split_amt > 0 ? b.split_amt : b.amount, 2)}</div>
                     <div style={{ fontSize: 12, color: '#9c3f74' }}>›</div>
                   </div>
                 </button>
