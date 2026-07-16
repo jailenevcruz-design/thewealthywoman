@@ -12,13 +12,31 @@ function getMonthThursdays(m) {
 }
 
 function getBillsForCheck(checkIdx, totalChecks, allBills) {
-  return allBills.filter(b => !b.archived).filter(b => {
-    if (b.check_slot !== null && b.check_slot !== undefined) return b.check_slot === checkIdx
-    if (b.split_slots) { try { const slots = JSON.parse(b.split_slots); return Array.isArray(slots) && slots.includes(checkIdx) } catch(e) {} }
-    if (!b.due_day) return false
+  const results = []
+  allBills.filter(b => !b.archived).forEach(b => {
+    // Split bill — appears on multiple checks with split amounts
+    if (b.split_slots) {
+      try {
+        const slots = JSON.parse(b.split_slots)
+        const amts = b.split_amts ? JSON.parse(b.split_amts) : []
+        const idx = slots.indexOf(checkIdx)
+        if (idx !== -1) {
+          results.push({ ...b, split_amt: amts[idx] || b.amount / slots.length })
+        }
+        return
+      } catch(e) {}
+    }
+    // Manually assigned to this slot
+    if (b.check_slot !== null && b.check_slot !== undefined) {
+      if (b.check_slot === checkIdx) results.push(b)
+      return
+    }
+    // Auto-placed by due date
+    if (!b.due_day) return
     const slot = Math.min(totalChecks - 1, Math.floor((b.due_day - 1) / (31 / totalChecks)))
-    return slot === checkIdx
+    if (slot === checkIdx) results.push(b)
   })
+  return results
 }
 
 function BillAssignSheet({ bill, totalChecks, currentSlot, onAssign, onSplit, onClose }) {
