@@ -49,7 +49,7 @@ export function useData() {
     await checkMonthReset()
     if (!hasSupabase) { setDb(buildDemo()); setLoading(false); return }
     setLoading(true)
-    const tables = ['bills','spend','checks','accounts','goals','deposits','debts','debt_payments','violations','credit_scores','saved_tips']
+    const tables = ['bills','spend','checks','accounts','goals','deposits','debts','debt_payments','violations','credit_scores','saved_tips','one_time_items']
     const out = {}
     await Promise.all(tables.map(async t => {
       const { data } = await supabase.from('ww_' + t).select('*').eq('user_id', FIXED_USER_ID)
