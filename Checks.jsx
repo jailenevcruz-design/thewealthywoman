@@ -8,7 +8,15 @@ function getBillsForCheck(check, allBills, allChecks) {
   const totalChecks = monthChecks.length || 4
   return allBills.filter(b => !b.archived).filter(b => {
     if (b.check_slot !== undefined && b.check_slot !== null) return b.check_slot === checkIdx
+    // Check for multi-split
+    if (b.split_slots) {
+      try {
+        const slots = JSON.parse(b.split_slots)
+        return slots.includes(checkIdx)
+      } catch(e) {}
+    }
     if (!b.due_day) return false
+    // Map due date to check slot based on actual Thursday dates in month
     const slotSize = 31 / totalChecks
     const slot = Math.min(totalChecks - 1, Math.floor((b.due_day - 1) / slotSize))
     return slot === checkIdx
@@ -151,9 +159,15 @@ function PlanMonth({ db, allChecks, update, showToast }) {
     setAssignSheet(null)
   }
 
-  const handleSplit = (bill, slot1, amt1, slot2, amt2) => {
-    update('bills', bill.id, { check_slot: slot1, split_slot2: slot2, split_amt: amt1, split_amt2: amt2 })
-    showToast(`${bill.name} split ✨`)
+  const handleSplit = (bill, splits) => {
+    // Store all split slots as JSON
+    update('bills', bill.id, { 
+      check_slot: splits[0].slot, 
+      split_slots: JSON.stringify(splits.map(s => s.slot)),
+      split_amts: JSON.stringify(splits.map(s => s.amount)),
+      split_amt: splits[0].amount
+    })
+    showToast(`${bill.name} split across ${splits.length} checks ✨`)
     setAssignSheet(null)
   }
 
@@ -166,8 +180,12 @@ function PlanMonth({ db, allChecks, update, showToast }) {
         const check = monthChecks[slot]
         const billsHere = db.bills.filter(b => !b.archived).filter(b => {
           if (b.check_slot !== undefined && b.check_slot !== null) return b.check_slot === slot
+          if (b.split_slots) {
+            try { return JSON.parse(b.split_slots).includes(slot) } catch(e) {}
+          }
+          if (!b.due_day) return false
           const slotSize = 31 / totalChecks
-          return b.due_day && Math.min(totalChecks-1, Math.floor((b.due_day-1)/slotSize)) === slot
+          return Math.min(totalChecks-1, Math.floor((b.due_day-1)/slotSize)) === slot
         })
         const total = billsHere.reduce((s, b) => s + (b.split_amt !== undefined ? b.split_amt : b.amount), 0)
         const thursdayDate = thursdays[slot]
@@ -220,63 +238,91 @@ function PlanMonth({ db, allChecks, update, showToast }) {
 }
 
 function BillAssignSheet({ bill, totalChecks, currentSlot, onAssign, onSplit, onClose }) {
-  const [split, setSplit] = useState(false)
-  const [amt1, setAmt1] = useState(String(Math.round(bill.amount / 2)))
-  const [slot1, setSlot1] = useState(currentSlot)
-  const [slot2, setSlot2] = useState(Math.min(currentSlot + 1, totalChecks - 1))
+  const [mode, setMode] = useState('move') // move | split
+  const [splitCount, setSplitCount] = useState(2)
+  // splits: array of {slot, amount}
+  const initSplits = (n) => Array.from({length: n}, (_, i) => ({
+    slot: Math.min(currentSlot + i, totalChecks - 1),
+    amount: +(bill.amount / n).toFixed(2)
+  }))
+  const [splits, setSplits] = useState(initSplits(2))
+
+  const updateSplitCount = (n) => {
+    setSplitCount(n)
+    setSplits(initSplits(n))
+  }
+
+  const updateSplit = (idx, key, val) => {
+    setSplits(prev => prev.map((s, i) => i === idx ? {...s, [key]: key === 'slot' ? +val : val} : s))
+  }
+
+  const splitTotal = splits.reduce((s, x) => s + (+x.amount || 0), 0)
+  const remainder = +(bill.amount - splitTotal).toFixed(2)
+
+  const confirmSplit = () => {
+    const validated = splits.map(s => ({...s, amount: +s.amount || 0}))
+    onSplit(bill, validated)
+  }
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(60,45,70,.45)', display: 'flex', alignItems: 'flex-end' }} onClick={onClose}>
-      <div onClick={e => e.stopPropagation()} style={{ width: '100%', background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '14px 16px 32px' }}>
+      <div onClick={e => e.stopPropagation()} style={{ width: '100%', background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '14px 16px 32px', maxHeight: '90vh', overflowY: 'auto' }}>
         <div style={{ width: 36, height: 4, background: '#dcd6e0', borderRadius: 2, margin: '0 auto 12px' }} />
-        <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 4 }}>{bill.name}</div>
-        <div style={{ fontSize: 12, color: 'var(--ink2)', marginBottom: 16 }}>{money(bill.amount, 2)}{bill.autopay ? ' · 🔄 autopay' : ''}</div>
-        {!split ? (
+        <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 2 }}>{bill.name}</div>
+        <div style={{ fontSize: 12, color: 'var(--ink2)', marginBottom: 14 }}>{money(bill.amount, 2)}{bill.autopay ? ' · 🔄 autopay' : ''}</div>
+
+        {/* Mode toggle */}
+        <div style={{ display: 'flex', background: '#efe7f2', borderRadius: 12, padding: 3, marginBottom: 16 }}>
+          <button onClick={() => setMode('move')} style={{ flex: 1, padding: 8, borderRadius: 10, fontWeight: 800, fontSize: 12, border: 'none', background: mode === 'move' ? '#fff' : 'none', color: mode === 'move' ? '#9c3f74' : 'var(--ink2)', cursor: 'pointer' }}>Move to check</button>
+          <button onClick={() => setMode('split')} style={{ flex: 1, padding: 8, borderRadius: 10, fontWeight: 800, fontSize: 12, border: 'none', background: mode === 'split' ? '#fff' : 'none', color: mode === 'split' ? '#9c3f74' : 'var(--ink2)', cursor: 'pointer' }}>Split payments</button>
+        </div>
+
+        {mode === 'move' ? (
           <>
-            <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--ink2)', marginBottom: 8 }}>MOVE TO CHECK</div>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--ink2)', marginBottom: 8 }}>ASSIGN TO CHECK</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {Array.from({ length: totalChecks }, (_, i) => (
-                <button key={i} onClick={() => onAssign(bill, i)} style={{ flex: 1, minWidth: 55, padding: '10px 6px', borderRadius: 12, fontWeight: 800, fontSize: 13, border: 'none', background: currentSlot === i ? 'var(--pink)' : 'var(--lav)', color: currentSlot === i ? '#fff' : '#5a52a0', cursor: 'pointer' }}>
+                <button key={i} onClick={() => onAssign(bill, i)} style={{ flex: 1, minWidth: 55, padding: '12px 6px', borderRadius: 12, fontWeight: 800, fontSize: 14, border: 'none', background: currentSlot === i ? 'var(--pink)' : 'var(--lav)', color: currentSlot === i ? '#fff' : '#5a52a0', cursor: 'pointer' }}>
                   {i + 1}
                 </button>
               ))}
             </div>
-            <button onClick={() => setSplit(true)} style={{ width: '100%', padding: 12, borderRadius: 14, background: '#fff6ea', border: '1.5px solid #f5e2c4', color: '#9a6a1a', fontWeight: 800, fontSize: 13, cursor: 'pointer', marginBottom: 8 }}>
-              ✂️ Split across two checks
-            </button>
           </>
         ) : (
           <>
-            <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--ink2)', marginBottom: 10 }}>SPLIT BETWEEN TWO CHECKS</div>
-            <div style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 10, color: 'var(--ink2)', marginBottom: 4 }}>Check</div>
-                <select value={slot1} onChange={e => setSlot1(+e.target.value)} style={{ width: '100%', padding: '8px 10px', borderRadius: 10, border: '1.5px solid var(--line)', fontSize: 13 }}>
-                  {Array.from({ length: totalChecks }, (_, i) => <option key={i} value={i}>Check {i+1}</option>)}
-                </select>
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 10, color: 'var(--ink2)', marginBottom: 4 }}>Amount</div>
-                <input value={amt1} onChange={e => setAmt1(e.target.value)} inputMode="decimal" style={{ width: '100%', padding: '8px 10px', borderRadius: 10, border: '1.5px solid var(--line)', fontSize: 13 }} />
-              </div>
+            <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--ink2)', marginBottom: 8 }}>HOW MANY CHECKS TO SPLIT ACROSS?</div>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+              {[2, 3, 4].map(n => (
+                <button key={n} onClick={() => updateSplitCount(n)} style={{ flex: 1, padding: '10px', borderRadius: 12, fontWeight: 800, fontSize: 14, border: 'none', background: splitCount === n ? 'var(--pink)' : 'var(--lav)', color: splitCount === n ? '#fff' : '#5a52a0', cursor: 'pointer' }}>{n}</button>
+              ))}
             </div>
-            <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 10, color: 'var(--ink2)', marginBottom: 4 }}>Check</div>
-                <select value={slot2} onChange={e => setSlot2(+e.target.value)} style={{ width: '100%', padding: '8px 10px', borderRadius: 10, border: '1.5px solid var(--line)', fontSize: 13 }}>
-                  {Array.from({ length: totalChecks }, (_, i) => <option key={i} value={i}>Check {i+1}</option>)}
-                </select>
+
+            {splits.map((s, i) => (
+              <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 10, alignItems: 'flex-end' }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 10, color: 'var(--ink2)', marginBottom: 4, fontWeight: 800 }}>CHECK</div>
+                  <select value={s.slot} onChange={e => updateSplit(i, 'slot', e.target.value)} style={{ width: '100%', padding: '9px 10px', borderRadius: 11, border: '1.5px solid var(--line)', fontSize: 13 }}>
+                    {Array.from({ length: totalChecks }, (_, j) => <option key={j} value={j}>Check {j+1}</option>)}
+                  </select>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 10, color: 'var(--ink2)', marginBottom: 4, fontWeight: 800 }}>AMOUNT</div>
+                  <input value={s.amount} onChange={e => updateSplit(i, 'amount', e.target.value)} inputMode="decimal" style={{ width: '100%', padding: '9px 10px', borderRadius: 11, border: '1.5px solid var(--line)', fontSize: 13 }} />
+                </div>
               </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 10, color: 'var(--ink2)', marginBottom: 4 }}>Remainder</div>
-                <input value={String(Math.max(0, bill.amount - (+amt1||0)).toFixed(2))} readOnly style={{ width: '100%', padding: '8px 10px', borderRadius: 10, border: '1.5px solid var(--line)', fontSize: 13, background: '#f8f4fb' }} />
-              </div>
+            ))}
+
+            <div style={{ background: remainder === 0 ? '#e1f5ee' : '#fff6ea', borderRadius: 12, padding: '9px 13px', fontSize: 12, fontWeight: 700, color: remainder === 0 ? '#3b8f6a' : '#9a6a1a', marginBottom: 14, display: 'flex', justifyContent: 'space-between' }}>
+              <span>{remainder === 0 ? '✅ Amounts add up perfectly' : '⚠️ Unallocated remainder'}</span>
+              {remainder !== 0 && <span style={{ fontFamily: 'var(--mono)' }}>{money(Math.abs(remainder), 2)}</span>}
             </div>
-            <button onClick={() => onSplit(bill, slot1, +amt1, slot2, bill.amount-(+amt1||0))} className="apply" style={{ width: '100%', padding: 12, borderRadius: 14, background: 'var(--matcha)', color: '#4e6327', fontWeight: 800, fontSize: 13, border: 'none', marginBottom: 8 }}>Confirm split ✨</button>
-            <button onClick={() => setSplit(false)} style={{ width: '100%', padding: 11, borderRadius: 14, background: '#fff', border: '1.5px solid var(--line)', color: 'var(--ink2)', fontWeight: 700, fontSize: 13 }}>Back</button>
+
+            <button onClick={confirmSplit} disabled={remainder !== 0} style={{ width: '100%', padding: 13, borderRadius: 14, background: remainder === 0 ? 'var(--matcha)' : '#dcd6e0', color: remainder === 0 ? '#4e6327' : 'var(--ink2)', fontWeight: 800, fontSize: 14, border: 'none', cursor: remainder === 0 ? 'pointer' : 'default', marginBottom: 8 }}>
+              Confirm split ✨
+            </button>
           </>
         )}
-        <button onClick={onClose} style={{ width: '100%', padding: 11, borderRadius: 14, background: '#fff', border: '1.5px solid var(--line)', color: 'var(--ink2)', fontWeight: 700, fontSize: 13, marginTop: 8 }}>Cancel</button>
+        <button onClick={onClose} style={{ width: '100%', padding: 11, borderRadius: 14, background: '#fff', border: '1.5px solid var(--line)', color: 'var(--ink2)', fontWeight: 700, fontSize: 13, cursor: 'pointer', marginTop: 8 }}>Cancel</button>
       </div>
     </div>
   )

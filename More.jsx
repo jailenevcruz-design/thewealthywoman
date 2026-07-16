@@ -115,17 +115,14 @@ function Debts({ db, update, insert, showToast }) {
             </div>
           </div>
           <div style={{ padding: '10px 14px' }}>
-            {debts.map((d, i) => (
-              <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: i < debts.length-1 ? '1px solid var(--line)' : 'none' }}>
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 700 }}>{d.name}</div>
-                  <div style={{ fontSize: 10, color: 'var(--ink2)', marginTop: 1 }}>{i === 0 ? 'focus · extra payment' : `min ${money(d.min_payment || 25)}`}</div>
-                </div>
-                <div style={{ fontSize: 13, fontWeight: 800, fontFamily: 'var(--mono)', color: i === 0 ? '#9c3f74' : 'var(--ink2)' }}>
-                  {i === 0 ? `+${money(extra)}` : money(d.min_payment || 25)}
-                </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0' }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 800 }}>{debts[0]?.name}</div>
+                <div style={{ fontSize: 10, color: 'var(--ink2)', marginTop: 1 }}>{money(debts[0]?.balance, 2)} remaining · snowball focus</div>
               </div>
-            ))}
+              <div style={{ fontSize: 16, fontWeight: 800, fontFamily: 'var(--mono)', color: '#9c3f74' }}>+{money(extra)}</div>
+            </div>
+            <div style={{ fontSize: 10, color: 'var(--ink2)', marginTop: 6, fontStyle: 'italic' }}>+ minimums on all other debts</div>
           </div>
           <div style={{ padding: '10px 14px', borderTop: '1px solid var(--line)', background: '#fdeef5' }}>
             <button onClick={() => { const amt = prompt(`Log payment on ${debts[0]?.name}`, extra); if (amt && +amt > 0) logPayment(debts[0], amt) }} style={{ width: '100%', padding: 10, borderRadius: 12, background: 'var(--pink)', color: '#fff', fontWeight: 800, fontSize: 13, border: 'none', cursor: 'pointer' }}>
@@ -488,8 +485,8 @@ function SettingsEmbed({ catColors, setCatColors }) {
 export default function More({ db, update, insert, showToast, signOut, demo, catColors = {}, setCatColors }) {
   const [sub, setSub] = useState('debts')
   const [confirmSignOut, setConfirmSignOut] = useState(false)
-  const titles = { debts: 'Breaking Free 🕊️', income: 'Income 📈', ez: 'EZ-Pass 🚗', teach: 'Teachings 📚', settings: 'Settings ⚙️' }
-  const subsub = { debts: 'Lighter every month', income: 'The big picture', ez: 'Violations to clear', teach: 'Money wisdom, applied to you', settings: 'Customize your app' }
+  const titles = { debts: 'Breaking Free 🕊️', income: 'Income 📈', ez: 'EZ-Pass 🚗', teach: 'Teachings 📚' }
+  const subsub = { debts: 'Lighter every month', income: 'The big picture', ez: 'Violations to clear', teach: 'Money wisdom, applied to you' }
 
   return (
     <div className="screen">
@@ -500,13 +497,12 @@ export default function More({ db, update, insert, showToast, signOut, demo, cat
         <button className={'chip' + (sub === 'income' ? ' on' : '')} onClick={() => setSub('income')}>📈 Income</button>
         <button className={'chip' + (sub === 'ez' ? ' on' : '')} onClick={() => setSub('ez')}>🚗 EZ-Pass</button>
         <button className={'chip' + (sub === 'teach' ? ' on' : '')} onClick={() => setSub('teach')}>📚 Teachings</button>
-        <button className={'chip' + (sub === 'settings' ? ' on' : '')} onClick={() => setSub('settings')}>⚙️ Settings</button>
       </div>
       {sub === 'debts' && <Debts db={db} update={update} insert={insert} showToast={showToast} />}
       {sub === 'income' && <Income db={db} />}
       {sub === 'ez' && <EZPass db={db} update={update} showToast={showToast} />}
       {sub === 'teach' && <Teachings db={db} insert={insert} showToast={showToast} />}
-      {sub === 'settings' && <SettingsEmbed catColors={catColors || {}} setCatColors={setCatColors || (() => {})} />}
+
       <div style={{ textAlign: 'center', marginTop: 28 }}>
         {demo ? <span style={{ fontSize: 11, color: 'var(--ink2)' }}>Demo mode — nothing is saved</span>
           : confirmSignOut

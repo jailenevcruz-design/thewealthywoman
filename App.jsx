@@ -6,7 +6,6 @@ import Spend from './Spend.jsx'
 import Checks from './Checks.jsx'
 import Savings from './Savings.jsx'
 import More from './More.jsx'
-import Settings from './Settings.jsx'
 
 const FIXED_USER_ID = 'b8596a83-3ce9-41ea-871d-bc6e64e41b53'
 
@@ -22,7 +21,6 @@ const TABS = [
 export default function App() {
   const [tab, setTab] = useState('home')
   const [toast, setToast] = useState(null)
-  const [showSettings, setShowSettings] = useState(false)
   const [catColors, setCatColorsState] = useState({})
   const { db, setDb, loading, insert, update, remove } = useData()
 
@@ -55,7 +53,7 @@ export default function App() {
         {tab === 'spend' && <Spend {...api} catColors={catColors} />}
         {tab === 'checks' && <Checks {...api} />}
         {tab === 'savings' && <Savings {...api} />}
-        {tab === 'more' && <More {...api} demo={false} catColors={catColors} setCatColors={setCatColors} />}
+        {tab === 'more' && <More {...api} demo={false} />}
       </div>
       <nav className="nav">
         {TABS.map(([id, e, l]) => (
@@ -65,7 +63,6 @@ export default function App() {
         ))}
       </nav>
       {toast && <div className="toast">{toast}</div>}
-      {showSettings && <Settings catColors={catColors} setCatColors={setCatColors} onClose={() => setShowSettings(false)} />}
     </div>
   )
 }
