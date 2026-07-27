@@ -205,7 +205,7 @@ export default function App() {
           </div>
 
           {/* Main content */}
-          <div style={{ flex: 1, overflowY: 'auto', minWidth: 0 }}>
+          <div className="desktop-main" style={{ flex: 1, overflowY: 'auto', minWidth: 0, width: '100%' }}>
             {content}
           </div>
 
