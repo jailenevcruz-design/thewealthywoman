@@ -330,6 +330,85 @@ function ThisWeek({ check, slot, db, update, insert, remove, showToast }) {
   )
 }
 
+
+// ── Add Item Sheet ──
+function AddItemSheet({ slot, slotLabel, month, bills, onAdd, onClose }) {
+  const [name, setName] = useState('')
+  const [amt, setAmt] = useState('')
+  const [isEarlyBill, setIsEarlyBill] = useState(false)
+  const [selectedBill, setSelectedBill] = useState('')
+  const [coversMonth, setCoversMonth] = useState('')
+
+  const activeBills = (bills||[]).filter(b=>!b.archived)
+
+  const handleBillSelect = (billId) => {
+    setSelectedBill(billId)
+    const bill = activeBills.find(b=>b.id===billId)
+    if (bill) { setName(bill.name); setAmt(String(bill.amount)) }
+  }
+
+  // Generate month options: current + next 3
+  const monthOptions = []
+  const [yr, mo] = month.split('-').map(Number)
+  for (let i=0; i<4; i++) {
+    const d = new Date(yr, mo-1+i, 1)
+    const val = d.toISOString().slice(0,7)
+    monthOptions.push({ val, label: d.toLocaleDateString('en-US',{month:'long',year:'numeric'}) })
+  }
+
+  return (
+    <div style={{position:'fixed',inset:0,zIndex:200,background:'rgba(60,45,70,.45)',display:'flex',alignItems:'flex-end'}} onClick={onClose}>
+      <div onClick={e=>e.stopPropagation()} style={{width:'100%',background:'var(--bg)',borderRadius:'20px 20px 0 0',padding:'14px 16px 32px',maxHeight:'90vh',overflowY:'auto'}}>
+        <div style={{width:36,height:4,background:'#dcd6e0',borderRadius:2,margin:'0 auto 12px'}}/>
+        <div style={{fontSize:15,fontWeight:800,marginBottom:2}}>Add one-time item ✨</div>
+        <div style={{fontSize:12,color:'var(--ink2)',marginBottom:16}}>{slotLabel}</div>
+
+        {/* Early bill toggle */}
+        <div style={{background:'#fff',border:'1.5px solid var(--line)',borderRadius:14,padding:'12px 14px',marginBottom:14}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <div>
+              <div style={{fontSize:13,fontWeight:800}}>This covers a bill early</div>
+              <div style={{fontSize:11,color:'var(--ink2)',marginTop:2}}>e.g. paying Aug rent from this check</div>
+            </div>
+            <button onClick={()=>setIsEarlyBill(v=>!v)} style={{width:40,height:24,borderRadius:12,background:isEarlyBill?'#5aa0d8':'#dcd6e0',position:'relative',border:'none',flexShrink:0,cursor:'pointer'}}>
+              <div style={{position:'absolute',top:3,[isEarlyBill?'right':'left']:3,width:18,height:18,borderRadius:'50%',background:'#fff'}}/>
+            </button>
+          </div>
+          {isEarlyBill && (
+            <div style={{marginTop:12}}>
+              <div style={{fontSize:10,fontWeight:800,color:'var(--ink2)',marginBottom:6}}>WHICH BILL?</div>
+              <select value={selectedBill} onChange={e=>handleBillSelect(e.target.value)} style={{width:'100%',padding:'9px 11px',borderRadius:11,border:'1.5px solid var(--line)',fontSize:13,marginBottom:10}}>
+                <option value="">Pick a bill…</option>
+                {activeBills.map(b=><option key={b.id} value={b.id}>{b.name} · {money(b.amount)}</option>)}
+              </select>
+              <div style={{fontSize:10,fontWeight:800,color:'var(--ink2)',marginBottom:6}}>PAYING FOR WHICH MONTH?</div>
+              <select value={coversMonth} onChange={e=>setCoversMonth(e.target.value)} style={{width:'100%',padding:'9px 11px',borderRadius:11,border:'1.5px solid var(--line)',fontSize:13}}>
+                <option value="">Pick month…</option>
+                {monthOptions.map(mo=><option key={mo.val} value={mo.val}>{mo.label}</option>)}
+              </select>
+            </div>
+          )}
+        </div>
+
+        <div className="field"><label>Name</label><input value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Rent, Affirm payment, Birthday dinner" style={{width:'100%',padding:'9px 12px',borderRadius:12,border:'1.5px solid var(--line)',fontSize:14,fontWeight:600}}/></div>
+        <div className="field"><label>Amount</label><input value={amt} onChange={e=>setAmt(e.target.value)} type="number" step="0.01" placeholder="0.00" style={{width:'100%',padding:'9px 12px',borderRadius:12,border:'1.5px solid var(--line)',fontSize:14}}/></div>
+
+        {isEarlyBill && amt && selectedBill && (
+          <div style={{background:'#e7f2c7',borderRadius:12,padding:'10px 13px',fontSize:11,color:'#3a5a1f',fontWeight:600,marginBottom:14,lineHeight:1.5}}>
+            ✅ {name||'This bill'} will show as covered in {monthOptions.find(o=>o.val===coversMonth)?.label||'the selected month'}
+            {+amt < (activeBills.find(b=>b.id===selectedBill)?.amount||0) ? ` · $${(activeBills.find(b=>b.id===selectedBill)?.amount||0) - (+amt||0)} still owed` : ' · fully covered'}
+          </div>
+        )}
+
+        <button onClick={()=>onAdd(name, amt, isEarlyBill?selectedBill:null, isEarlyBill?coversMonth:null)} disabled={!name||!amt||(isEarlyBill&&(!selectedBill||!coversMonth))} style={{width:'100%',padding:13,borderRadius:14,background:(!name||!amt||(isEarlyBill&&(!selectedBill||!coversMonth)))?'#dcd6e0':'var(--matcha)',color:(!name||!amt||(isEarlyBill&&(!selectedBill||!coversMonth)))?'var(--ink2)':'#4e6327',fontWeight:800,fontSize:14,border:'none',cursor:'pointer',marginBottom:8}}>
+          Add to {slotLabel} ✨
+        </button>
+        <button onClick={onClose} style={{width:'100%',padding:11,borderRadius:14,background:'#fff',border:'1.5px solid var(--line)',color:'var(--ink2)',fontWeight:700,fontSize:13,cursor:'pointer'}}>Cancel</button>
+      </div>
+    </div>
+  )
+}
+
 // ── Budgets ──
 function Budgets({ db, update, insert, remove, showToast }) {
   const months = Object.keys(PAY_SCHEDULE)
@@ -376,11 +455,23 @@ function Budgets({ db, update, insert, remove, showToast }) {
     setAssignSheet(null)
   }
 
-  const addOneTime = (slot) => {
-    if (!newName||!newAmt) return
-    insert('one_time_items',{name:newName,amount:+newAmt||0,check_slot:slot,month:m})
-    setNewName(''); setNewAmt(''); setAddingSlot(null)
-    showToast(`${newName} added ✨`)
+  const addOneTime = (slot, name, amt, coversBillId, coversMonth) => {
+    if (!name||!amt) return
+    const payload = { name, amount:+amt||0, check_slot:slot, month:m, covers_bill_id: coversBillId||null, covers_month: coversMonth||null }
+    insert('one_time_items', payload)
+    // If covers a bill, mark that bill as early paid in the target month
+    if (coversBillId && coversMonth) {
+      const bill = (db.bills||[]).find(b=>b.id===coversBillId)
+      if (bill) {
+        const checkLabel = `${new Date(m+'-15').toLocaleDateString('en-US',{month:'short'})} ${checks[slot].day} Check ${slot+1}`
+        // Store early payment info on the bill keyed by month
+        const earlyPayments = bill.early_payments ? JSON.parse(bill.early_payments) : {}
+        earlyPayments[coversMonth] = { check: `${m}-${String(checks[slot].day).padStart(2,'0')}`, label: checkLabel, amount: +amt||0 }
+        update('bills', bill.id, { early_payments: JSON.stringify(earlyPayments) })
+      }
+    }
+    setAddingSlot(null)
+    showToast(`${name} added ✨`)
   }
 
   const saveOneTime = (id, name, amount, slot) => {
@@ -438,7 +529,10 @@ function Budgets({ db, update, insert, remove, showToast }) {
               )}
 
               {billsHere.map((b,idx)=>{
-                const isEarly = !!b.early_payment_check
+                const earlyPayments = b.early_payments ? (() => { try { return JSON.parse(b.early_payments) } catch(e) { return {} } })() : {}
+                const earlyForThisMonth = earlyPayments[m]
+                const isEarly = !!earlyForThisMonth || !!b.early_payment_check
+                const earlyLabel = earlyForThisMonth ? `${earlyForThisMonth.amount < b.amount ? money(earlyForThisMonth.amount)+' paid early' : 'paid early'} · ${earlyForThisMonth.label}` : b.early_payment_label
                 return (
                   <button key={b.id} onClick={()=>setAssignSheet({bill:b,currentSlot:slot})}
                     style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 14px',background:isEarly?'#f0faf4':'none',border:'none',borderBottom:idx<billsHere.length-1||itemsHere.length>0?'1px solid var(--line)':'none',cursor:'pointer',textAlign:'left',opacity:isEarly?.75:1}}>
@@ -447,7 +541,7 @@ function Budgets({ db, update, insert, remove, showToast }) {
                       <div>
                         <div style={{fontSize:12,fontWeight:700,color:isEarly?'var(--ink2)':'var(--ink)'}}>{b.name}</div>
                         <div style={{fontSize:10,color:isEarly?'#3b8f6a':'var(--ink2)',marginTop:1}}>
-                          {isEarly ? `paid early · ${b.early_payment_label}` : `${b.autopay?'🔄 auto · ':''}due ${b.due_day}${b.due_day===1?'st':'th'}${b._splitAmt?' · split':''}`}
+                          {isEarly ? earlyLabel : `${b.autopay?'🔄 auto · ':''}due ${b.due_day}${b.due_day===1?'st':'th'}${b._splitAmt?' · split':''}`}
                         </div>
                       </div>
                     </div>
@@ -477,16 +571,7 @@ function Budgets({ db, update, insert, remove, showToast }) {
               ))}
 
               {/* Add item footer */}
-              {addingSlot===slot ? (
-                <div style={{padding:'10px 14px',background:'#f8f4fb',borderTop:'1px solid var(--line)'}}>
-                  <input value={newName} onChange={e=>setNewName(e.target.value)} placeholder="Name (e.g. Affirm, dinner)" style={{width:'100%',padding:'8px 11px',borderRadius:10,border:'1.5px solid var(--line)',fontSize:13,marginBottom:8}}/>
-                  <div style={{display:'flex',gap:8}}>
-                    <input value={newAmt} onChange={e=>setNewAmt(e.target.value)} placeholder="Amount" inputMode="decimal" style={{flex:1,padding:'8px 11px',borderRadius:10,border:'1.5px solid var(--line)',fontSize:13}}/>
-                    <button onClick={()=>addOneTime(slot)} style={{padding:'8px 14px',borderRadius:10,background:'var(--matcha)',color:'#4e6327',fontWeight:800,fontSize:12,border:'none',cursor:'pointer'}}>Add</button>
-                    <button onClick={()=>{setAddingSlot(null);setNewName('');setNewAmt('')}} style={{padding:'8px 12px',borderRadius:10,background:'#fff',border:'1.5px solid var(--line)',color:'var(--ink2)',fontWeight:700,fontSize:12,cursor:'pointer'}}>✕</button>
-                  </div>
-                </div>
-              ) : (
+              {(
                 <div style={{padding:'8px 14px',background:'#f8f4fb',borderTop:'1px solid var(--line)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                   <button onClick={()=>setAddingSlot(slot)} style={{fontSize:10,fontWeight:800,color:'#9a6a1a',background:'#fff3dc',border:'none',borderRadius:8,padding:'4px 10px',cursor:'pointer'}}>+ add item</button>
                   <span style={{fontSize:11,color:'var(--ink2)'}}>{billsHere.length} bills{itemsHere.length>0?` · ${itemsHere.length} items`:''}</span>
@@ -497,6 +582,14 @@ function Budgets({ db, update, insert, remove, showToast }) {
         )
       })}
 
+      {addingSlot!==null&&<AddItemSheet
+        slot={addingSlot}
+        slotLabel={checks[addingSlot]?.label||`Check ${addingSlot+1}`}
+        month={m}
+        bills={db.bills}
+        onAdd={(name,amt,billId,coversMonth)=>addOneTime(addingSlot,name,amt,billId,coversMonth)}
+        onClose={()=>setAddingSlot(null)}
+      />}
       {assignSheet&&<BillAssignSheet bill={assignSheet.bill} totalSlots={totalSlots} currentSlot={assignSheet.currentSlot} onAssign={handleAssign} onSplit={handleSplit} onMarkEarly={handleMarkEarly} onClose={()=>setAssignSheet(null)} prevCheck={prevCheck}/>}
       {oneTimeSheet&&<OneTimeSheet item={oneTimeSheet} totalSlots={totalSlots} onSave={saveOneTime} onDelete={deleteOneTime} onClose={()=>setOneTimeSheet(null)}/>}
     </div>
