@@ -320,3 +320,23 @@ body{-webkit-font-smoothing:antialiased}
 .c-gift{background:#fdeede;color:#9a6a1a}.c-health{background:#e1f5ee;color:#1f6b4a}
 .c-custom{background:#f0edf5;color:#5a4a63}
 .c-auto{background:#d1fae5;color:#1a6b5a}.c-util{background:#e0e7ff;color:#4338ca}.c-cards{background:#ffe4e6;color:#be123c}
+
+/* ── Desktop overrides ── */
+@media (min-width: 900px) {
+  .appframe {
+    max-width: 100%;
+    position: relative;
+    height: 100%;
+    background: transparent;
+  }
+  .appscroll {
+    padding-bottom: 0;
+  }
+  .screen {
+    padding: 28px 32px 32px;
+    max-width: 100%;
+  }
+  .nav {
+    display: none;
+  }
+}
