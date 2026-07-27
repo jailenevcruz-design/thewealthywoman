@@ -21,21 +21,25 @@ function getChecksForMonth(m) {
   }))
 }
 
-function getBillsForSlot(slot, totalSlots, allBills, month) {
+function getBillsForSlot(slot, totalSlots, allBills, month, billSlots) {
   const results = []
   ;(allBills || []).filter(b => !b.archived).forEach(b => {
-    if (b.split_slots) {
-      try {
-        const slots = JSON.parse(b.split_slots)
-        const amts = b.split_amts ? JSON.parse(b.split_amts) : []
-        const idx = slots.indexOf(slot)
-        if (idx !== -1) { results.push({ ...b, _splitAmt: +amts[idx] || b.amount / slots.length }); return }
-      } catch(e) {}
+    // Check monthly slot assignment first
+    const monthSlot = (billSlots || []).find(s => s.bill_id === b.id && s.month === month)
+    if (monthSlot) {
+      if (monthSlot.split_slots) {
+        try {
+          const slots = JSON.parse(monthSlot.split_slots)
+          const amts = monthSlot.split_amts ? JSON.parse(monthSlot.split_amts) : []
+          const idx = slots.indexOf(slot)
+          if (idx !== -1) { results.push({ ...b, _splitAmt: +amts[idx] || b.amount / slots.length }); return }
+          return // has monthly slot but not this one
+        } catch(e) {}
+      }
+      if (monthSlot.check_slot === slot) { results.push(b); return }
+      return // has monthly slot but different one
     }
-    if (b.check_slot !== null && b.check_slot !== undefined) {
-      if (b.check_slot === slot) results.push(b)
-      return
-    }
+    // Fall back to auto-placement by due date
     if (!b.due_day) return
     const slotSize = 31 / totalSlots
     const s = Math.min(totalSlots - 1, Math.floor((b.due_day - 1) / slotSize))
@@ -151,7 +155,8 @@ function ThisWeek({ check, slot, db, update, insert, remove, showToast }) {
   const m = check.date.slice(0,7)
   const checksForMonth = getChecksForMonth(m)
   const totalSlots = checksForMonth.length
-  const billsForSlot = getBillsForSlot(slot, totalSlots, db.bills, m)
+  const billSlots = db.bill_slots || []
+  const billsForSlot = getBillsForSlot(slot, totalSlots, db.bills, m, billSlots)
   const oneTimeItems = (db.one_time_items||[]).filter(i=>i.month===m&&i.check_slot===slot)
   const totalBills = billsForSlot.reduce((s,b)=>s+getAmt(b),0)
   const totalOneTime = oneTimeItems.reduce((s,i)=>s+i.amount,0)
@@ -426,6 +431,7 @@ function Budgets({ db, update, insert, remove, showToast }) {
   const totalSlots = checks.length
   const oneTimeItems = (db.one_time_items||[]).filter(i=>i.month===m)
   const [yr, mo] = m.split('-').map(Number)
+  const billSlots = db.bill_slots || []
   // Previous month's last check
   const prevM = months[monthIdx - 1]
   const prevChecks = prevM ? getChecksForMonth(prevM) : []
@@ -433,8 +439,13 @@ function Budgets({ db, update, insert, remove, showToast }) {
   const prevCheck = prevLastCheck ? { ...prevLastCheck, month: prevM, date: `${prevM}-${String(prevLastCheck.day).padStart(2,'0')}`, label: `${new Date(prevM+'-15').toLocaleDateString('en-US',{month:'short'})} ${prevLastCheck.day} Check ${prevLastCheck.slot+1}` } : null
 
   const handleAssign = (bill, slot) => {
-    update('bills', bill.id, { check_slot: slot, split_slots: null, split_amts: null, early_payment_check: null, early_payment_label: null })
-    showToast(`${bill.name} → Check ${slot+1}`)
+    const existing = billSlots.find(s => s.bill_id === bill.id && s.month === m)
+    if (existing) {
+      update('bill_slots', existing.id, { check_slot: slot, split_slots: null, split_amts: null })
+    } else {
+      insert('bill_slots', { bill_id: bill.id, month: m, check_slot: slot, split_slots: null, split_amts: null })
+    }
+    showToast(`${bill.name} → Check ${slot+1} for ${m}`)
     setAssignSheet(null)
   }
 
@@ -445,12 +456,10 @@ function Budgets({ db, update, insert, remove, showToast }) {
   }
 
   const handleSplit = (bill, splits) => {
-    update('bills', bill.id, {
-      check_slot: splits[0].slot,
-      split_slots: JSON.stringify(splits.map(s=>s.slot)),
-      split_amts: JSON.stringify(splits.map(s=>s.amount)),
-      split_amt: splits[0].amount
-    })
+    const existing = billSlots.find(s => s.bill_id === bill.id && s.month === m)
+    const payload = { bill_id: bill.id, month: m, check_slot: splits[0].slot, split_slots: JSON.stringify(splits.map(s=>s.slot)), split_amts: JSON.stringify(splits.map(s=>s.amount)) }
+    if (existing) { update('bill_slots', existing.id, payload) }
+    else { insert('bill_slots', payload) }
     showToast(`${bill.name} split across ${splits.length} checks ✨`)
     setAssignSheet(null)
   }
@@ -507,7 +516,7 @@ function Budgets({ db, update, insert, remove, showToast }) {
       </div>
 
       {checks.map(({slot,day,label})=>{
-        const billsHere = getBillsForSlot(slot, totalSlots, db.bills, m)
+        const billsHere = getBillsForSlot(slot, totalSlots, db.bills, m, billSlots)
         const itemsHere = oneTimeItems.filter(i=>i.check_slot===slot)
         const billTotal = billsHere.reduce((s,b)=>s+getAmt(b),0)
         const itemTotal = itemsHere.reduce((s,i)=>s+i.amount,0)
