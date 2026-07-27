@@ -1,8 +1,37 @@
 import { useState } from 'react'
 import { money, curMonth } from './lib'
 
-function PayForm({ bill, onSave, onClose }) {
-  const [amt, setAmt] = useState(String(+(bill.amount - (bill.paid_amount || 0)).toFixed(2)))
+const PAY_SCHEDULE = {
+  '2026-07': [3,10,17,24,31],
+  '2026-08': [7,14,21,28],
+  '2026-09': [4,11,18,25],
+  '2026-10': [2,9,16,23,30],
+  '2026-11': [6,13,20,27],
+  '2026-12': [4,11,18,25],
+  '2027-01': [1,8,15,22,29],
+}
+
+function getCheckLabel(bill, billSlots, month) {
+  const days = PAY_SCHEDULE[month] || []
+  const totalSlots = days.length
+  if (!totalSlots) return null
+  const monthSlot = billSlots.find(s => s.bill_id === bill.id && s.month === month)
+  let slot
+  if (monthSlot?.check_slot !== null && monthSlot?.check_slot !== undefined) {
+    slot = monthSlot.check_slot
+  } else if (monthSlot?.split_slots) {
+    try { slot = JSON.parse(monthSlot.split_slots)[0] } catch(e) {}
+  } else if (bill.due_day) {
+    slot = Math.min(totalSlots - 1, Math.floor((bill.due_day - 1) / (31 / totalSlots)))
+  } else return null
+  const day = days[slot]
+  if (!day) return null
+  const date = new Date(`${month}-${String(day).padStart(2,'0')}T00:00`)
+  return `Check ${slot+1} · ${date.toLocaleDateString('en-US',{month:'short',day:'numeric'})}`
+}
+
+function PayForm({ bill, monthAmt, onSave, onClose }) {
+  const [amt, setAmt] = useState(String(+(monthAmt - (bill.paid_amount || 0)).toFixed(2)))
   const [billMonth, setBillMonth] = useState(curMonth())
   return (
     <div>
@@ -21,6 +50,9 @@ function PayForm({ bill, onSave, onClose }) {
 }
 
 export default function Bills({ db, update, insert, remove, showToast }) {
+  const m = curMonth()
+  const billSlots = db.bill_slots || []
+  const getMonthAmt = (bill) => { const slot = billSlots.find(s => s.bill_id === bill.id && s.month === m); return slot?.amount_override || bill.amount }
   const [expanded, setExpanded] = useState(null)
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState(null)
@@ -30,8 +62,8 @@ export default function Bills({ db, update, insert, remove, showToast }) {
 
   const active = (db.bills || []).filter(b => !b.archived)
   const archived = (db.bills || []).filter(b => b.archived)
-  const total = active.reduce((s, b) => s + b.amount, 0)
-  const paidSoFar = active.reduce((s, b) => s + (b.status === 'paid' ? b.amount : b.paid_amount || 0), 0)
+  const total = active.reduce((s, b) => s + getMonthAmt(b), 0)
+  const paidSoFar = active.reduce((s, b) => s + (b.status === 'paid' ? getMonthAmt(b) : b.paid_amount || 0), 0)
   const stillOwed = total - paidSoFar
   const paidCount = active.filter(b => b.status === 'paid').length
   const pct = total > 0 ? Math.round(paidSoFar / total * 100) : 0
@@ -52,8 +84,9 @@ export default function Bills({ db, update, insert, remove, showToast }) {
   const billPayments = (db.spend || []).filter(s => s.bill_id)
 
   const logPayment = (b, amt, billMonth) => {
-    const newPaid = Math.min((b.paid_amount || 0) + amt, b.amount)
-    const status = newPaid >= b.amount ? 'paid' : 'partial'
+    const monthAmt = getMonthAmt(b)
+    const newPaid = Math.min((b.paid_amount || 0) + amt, monthAmt)
+    const status = newPaid >= monthAmt ? 'paid' : 'partial'
     update('bills', b.id, { paid_amount: newPaid, status })
     insert('spend', { place: b.name, category: b.grp || 'Housing', emoji: '🧾', color: '#a89be6', amount: amt, date: new Date().toISOString().slice(0,10), bill_id: b.id, bill_month: billMonth })
     showToast(`Payment logged — ${money(amt)} on ${b.name} ✨`)
@@ -92,6 +125,7 @@ export default function Bills({ db, update, insert, remove, showToast }) {
   const toggle = id => setExpanded(expanded === id ? null : id)
 
   const BillRow = ({ b }) => {
+    const mAmt = getMonthAmt(b)
     const isPaid = b.status === 'paid'
     const isPartial = b.status === 'partial'
     const isOverdue = !isPaid && !b.running && b.due_day && b.due_day < today
@@ -109,11 +143,12 @@ export default function Bills({ db, update, insert, remove, showToast }) {
             <div style={{ fontSize: 10, color: 'var(--ink2)', marginTop: 2, display: 'flex', gap: 5, alignItems: 'center', flexWrap: 'wrap' }}>
               {b.autopay && <span style={{ background: '#e0f2fe', color: '#0878a0', padding: '1px 5px', borderRadius: 6, fontWeight: 800 }}>auto</span>}
               {isOverdue && <span style={{ background: '#fee2e2', color: '#c0483f', padding: '1px 5px', borderRadius: 6, fontWeight: 800 }}>overdue</span>}
-              {isPartial && <span style={{ fontWeight: 700, color: '#d4a017' }}>{money(b.paid_amount)} paid · {money(b.amount - (b.paid_amount||0))} left</span>}
+              {isPartial && <span style={{ fontWeight: 700, color: '#d4a017' }}>{money(b.paid_amount)} paid · {money(mAmt - (b.paid_amount||0))} left</span>}
               {!isPartial && <span>due {b.due_day}{b.due_day===1?'st':b.due_day===2?'nd':b.due_day===3?'rd':'th'}{b.running ? ' · running' : ''}</span>}
+              {getCheckLabel(b, billSlots, m) && <span style={{ background: 'var(--lav)', color: '#5a52a0', padding: '1px 5px', borderRadius: 6, fontWeight: 700 }}>{getCheckLabel(b, billSlots, m)}</span>}
             </div>
           </div>
-          <div style={{ fontSize: 14, fontWeight: 800, fontFamily: 'var(--mono)', color: isPaid ? '#3b8f6a' : isOverdue ? '#c0483f' : 'var(--ink)', flexShrink: 0 }}>{money(b.amount, 2)}</div>
+          <div style={{ fontSize: 14, fontWeight: 800, fontFamily: 'var(--mono)', color: isPaid ? '#3b8f6a' : isOverdue ? '#c0483f' : 'var(--ink)', flexShrink: 0 }}>{money(mAmt, 2)}{mAmt !== b.amount && <span style={{fontSize:9,color:'var(--ink2)',marginLeft:3}}>*</span>}</div>
           <div style={{ fontSize: 11, color: 'var(--ink2)', marginLeft: 4 }}>{isOpen ? '▴' : '▾'}</div>
         </button>
         {isOpen && (
@@ -212,7 +247,7 @@ export default function Bills({ db, update, insert, remove, showToast }) {
             <div style={{ width: 36, height: 4, background: '#dcd6e0', borderRadius: 2, margin: '0 auto 12px' }} />
             <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 2 }}>Log a payment 💳</div>
             <div style={{ fontSize: 12, color: 'var(--ink2)', marginBottom: 14 }}>{paySheet.name} · {money(paySheet.amount - (paySheet.paid_amount||0))} remaining</div>
-            <PayForm bill={paySheet} onSave={(amt, month) => logPayment(paySheet, amt, month)} onClose={() => setPaySheet(null)} />
+            <PayForm bill={paySheet} monthAmt={getMonthAmt(paySheet)} onSave={(amt, month) => logPayment(paySheet, amt, month)} onClose={() => setPaySheet(null)} />
           </div>
         </div>
       )}
