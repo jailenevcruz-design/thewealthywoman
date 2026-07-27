@@ -556,6 +556,7 @@ function Budgets({ db, update, insert, remove, showToast }) {
         💡 Tap any bill to move or split it. Tap ✨ items to edit or move them.
       </div>
 
+      <div className="budget-grid">
       {checks.map(({slot,day,label})=>{
         const billsHere = getBillsForSlot(slot, totalSlots, db.bills, m, billSlots)
         const itemsHere = oneTimeItems.filter(i=>i.check_slot===slot)
@@ -666,6 +667,7 @@ function Budgets({ db, update, insert, remove, showToast }) {
         )
       })}
 
+      </div>
       {addingSlot!==null&&<AddItemSheet
         slot={addingSlot}
         slotLabel={checks[addingSlot]?.label||`Check ${addingSlot+1}`}
