@@ -496,12 +496,12 @@ export default function More({ db, update, insert, showToast, signOut, demo, cat
         <button className={'chip' + (sub === 'debts' ? ' on' : '')} onClick={() => setSub('debts')}>💳 Debts</button>
         <button className={'chip' + (sub === 'income' ? ' on' : '')} onClick={() => setSub('income')}>📈 Income</button>
         <button className={'chip' + (sub === 'ez' ? ' on' : '')} onClick={() => setSub('ez')}>🚗 EZ-Pass</button>
-        <button className={'chip' + (sub === 'teach' ? ' on' : '')} onClick={() => setSub('teach')}>📚 Teachings</button>
+        {/* Teachings hidden — {<button className={'chip' + (sub === 'teach' ? ' on' : '')} onClick={() => setSub('teach')}>📚 Teachings</button>} */}
       </div>
       {sub === 'debts' && <Debts db={db} update={update} insert={insert} showToast={showToast} />}
       {sub === 'income' && <Income db={db} />}
       {sub === 'ez' && <EZPass db={db} update={update} showToast={showToast} />}
-      {sub === 'teach' && <Teachings db={db} insert={insert} showToast={showToast} />}
+      {/* Teachings hidden */}
 
       <div style={{ textAlign: 'center', marginTop: 28 }}>
         {demo ? <span style={{ fontSize: 11, color: 'var(--ink2)' }}>Demo mode — nothing is saved</span>
