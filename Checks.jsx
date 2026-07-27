@@ -230,12 +230,13 @@ function ThisWeek({ check, slot, db, update, insert, remove, showToast }) {
 
   return (
     <div>
-      {/* Big left number hero */}
+      {/* Big left number hero - full width */}
       <div style={{background:'linear-gradient(135deg,#fdeef5,#eee7fb)',borderRadius:20,padding:20,marginBottom:14,textAlign:'center'}}>
         <div style={{fontSize:52,fontWeight:800,color:'#5a3f56',fontFamily:'var(--mono)',lineHeight:1}}>{money(Math.max(0,leftover))}</div>
         <div style={{fontSize:12,color:'#9d8fa8',marginTop:6,fontWeight:600}}>you have left this check</div>
         <div style={{fontSize:11,color:'#9c3f74',marginTop:4,fontWeight:700}}>after bills, one-time items & savings</div>
       </div>
+      <div className="thisweek-grid">
 
       {/* Breakdown summary */}
       <div style={{background:'#fff',border:'1px solid var(--line)',borderRadius:16,overflow:'hidden',marginBottom:12}}>
@@ -341,6 +342,7 @@ function ThisWeek({ check, slot, db, update, insert, remove, showToast }) {
           <div style={{fontSize:12,fontWeight:700,fontFamily:'var(--mono)',color:'#3b8f6a'}}>{money(savingsRec)}</div>
         </div>
       </div>
+      </div>{/* end thisweek-grid */}
     </div>
   )
 }
