@@ -336,18 +336,19 @@ body{-webkit-font-smoothing:antialiased}
     overflow-y: auto !important;
     height: 100% !important;
   }
-  .screen {
+  .desktop-main .screen {
     padding: 28px 40px 40px !important;
     max-width: 100% !important;
     width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .desktop-main .summary {
+    flex-direction: row !important;
+  }
+  .desktop-main .legend {
+    max-height: none !important;
   }
   .nav {
     display: none !important;
-  }
-  .summary {
-    flex-direction: row !important;
-  }
-  .card {
-    width: 100% !important;
   }
 }
