@@ -550,7 +550,7 @@ function Budgets({ db, update, insert, remove, showToast }) {
       {checks.map(({slot,day,label})=>{
         const billsHere = getBillsForSlot(slot, totalSlots, db.bills, m, billSlots)
         const itemsHere = oneTimeItems.filter(i=>i.check_slot===slot)
-        const getEarlyAmt = b => { try { return b.early_payments ? (JSON.parse(b.early_payments)[m]?.amount||0) : 0 } catch(e) { return 0 } }
+        const getEarlyAmt = b => { try { if (!b.early_payments) return 0; const ep = typeof b.early_payments === 'string' ? JSON.parse(b.early_payments) : b.early_payments; return ep[m]?.amount||0 } catch(e) { return 0 } }
         const billTotal = billsHere.reduce((s,b)=>{
           const early = getEarlyAmt(b)
           const amt = getAmt(b, billSlots, m)
@@ -577,7 +577,7 @@ function Budgets({ db, update, insert, remove, showToast }) {
               )}
 
               {(() => {
-                const getEarly = b => { try { return b.early_payments ? JSON.parse(b.early_payments)[m] : null } catch(e) { return null } }
+                const getEarly = b => { try { if (!b.early_payments) return null; const ep = typeof b.early_payments === 'string' ? JSON.parse(b.early_payments) : b.early_payments; return ep[m]||null } catch(e) { return null } }
                 const regularBills = billsHere.filter(b => !getEarly(b))
                 const earlyBills = billsHere.filter(b => !!getEarly(b))
                 return <>
