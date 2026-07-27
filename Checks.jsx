@@ -58,7 +58,7 @@ function getAmt(b, billSlots, month) {
 }
 
 // ── Bill Assign Sheet ──
-function BillAssignSheet({ bill, totalSlots, currentSlot, onAssign, onSplit, onMarkEarly, onClose, prevCheck, monthAmt, onSaveAmt }) {
+function BillAssignSheet({ bill, totalSlots, currentSlot, onAssign, onSplit, onMarkEarly, onClearEarly, onClose, monthAmt, onSaveAmt, currentMonth }) {
   const [mode, setMode] = useState('move')
   const [splitCount, setSplitCount] = useState(2)
   const initSplits = n => Array.from({length:n},(_,i)=>({ slot: Math.min(currentSlot+i,totalSlots-1), amount: +(bill.amount/n).toFixed(2) }))
@@ -93,12 +93,11 @@ function BillAssignSheet({ bill, totalSlots, currentSlot, onAssign, onSplit, onM
                 <button key={i} onClick={()=>onAssign(bill,i)} style={{flex:1,minWidth:50,padding:'12px 6px',borderRadius:12,fontWeight:800,fontSize:14,border:'none',background:currentSlot===i?'var(--pink)':'var(--lav)',color:currentSlot===i?'#fff':'#5a52a0',cursor:'pointer'}}>{i+1}</button>
               ))}
             </div>
-            {prevCheck && (
-              <button onClick={()=>onMarkEarly(bill,prevCheck)} style={{width:'100%',padding:'11px 14px',borderRadius:12,background:'#e7f2c7',border:'1.5px solid #b8d98a',color:'#3a5a1f',fontWeight:800,fontSize:12,cursor:'pointer',textAlign:'left'}}>
-                ✅ Mark as paid early via {prevCheck.label}
-                <div style={{fontSize:10,fontWeight:600,opacity:.8,marginTop:2}}>Shows as covered in this month's plan</div>
+              <button onClick={()=>onMarkEarly(bill)} style={{width:'100%',padding:'11px 14px',borderRadius:12,background:'#e7f2c7',border:'1.5px solid #b8d98a',color:'#3a5a1f',fontWeight:800,fontSize:12,cursor:'pointer',textAlign:'left',marginTop:8}}>
+                ✅ Not from this check
+                <div style={{fontSize:10,fontWeight:600,opacity:.8,marginTop:2}}>Removes from this check's total — mark as handled elsewhere</div>
               </button>
-            )}
+              {bill.early_payments && (() => { try { const ep = typeof bill.early_payments==='string'?JSON.parse(bill.early_payments):bill.early_payments; return ep[currentMonth]?.planned ? <button onClick={()=>onClearEarly(bill)} style={{width:'100%',padding:'9px 14px',borderRadius:12,background:'#fee2e2',border:'1.5px solid #fca5a5',color:'#c0483f',fontWeight:800,fontSize:11,cursor:'pointer',textAlign:'left',marginTop:6}}>↩ Put back on this check</button> : null } catch(e){return null} })()}
           </div>
         ) : (
           <div>
@@ -481,9 +480,19 @@ function Budgets({ db, update, insert, remove, showToast }) {
     setAssignSheet(null)
   }
 
-  const handleMarkEarly = (bill, prevCheck) => {
-    update('bills', bill.id, { early_payment_check: prevCheck.date, early_payment_label: prevCheck.label })
-    showToast(`${bill.name} marked as paid early via ${prevCheck.label} ✨`)
+  const handleMarkEarly = (bill) => {
+    const earlyPayments = bill.early_payments ? (typeof bill.early_payments==='string' ? JSON.parse(bill.early_payments) : bill.early_payments) : {}
+    earlyPayments[m] = { amount: getAmt(bill, billSlots, m), label: 'planned · handled elsewhere', planned: true }
+    update('bills', bill.id, { early_payments: earlyPayments })
+    showToast(`${bill.name} removed from this check's total ✨`)
+    setAssignSheet(null)
+  }
+
+  const handleClearEarly = (bill) => {
+    const earlyPayments = bill.early_payments ? (typeof bill.early_payments==='string' ? JSON.parse(bill.early_payments) : bill.early_payments) : {}
+    delete earlyPayments[m]
+    update('bills', bill.id, { early_payments: earlyPayments })
+    showToast(`${bill.name} back on this check`)
     setAssignSheet(null)
   }
 
@@ -672,10 +681,11 @@ function Budgets({ db, update, insert, remove, showToast }) {
         onAssign={handleAssign}
         onSplit={handleSplit}
         onMarkEarly={handleMarkEarly}
+        onClearEarly={handleClearEarly}
         onClose={()=>setAssignSheet(null)}
-        prevCheck={prevCheck}
         monthAmt={billSlots.find(s=>s.bill_id===assignSheet.bill.id&&s.month===m)?.amount_override||null}
         onSaveAmt={(amt)=>handleSaveAmt(assignSheet.bill,amt)}
+        currentMonth={m}
       />}
       {oneTimeSheet&&<OneTimeSheet item={oneTimeSheet} totalSlots={totalSlots} onSave={saveOneTime} onDelete={deleteOneTime} onClose={()=>setOneTimeSheet(null)}/>}
     </div>
