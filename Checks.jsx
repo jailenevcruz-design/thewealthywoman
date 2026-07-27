@@ -48,14 +48,17 @@ function getBillsForSlot(slot, totalSlots, allBills, month, billSlots) {
   return results
 }
 
-function getAmt(b) {
+function getAmt(b, billSlots, month) {
   if (b._splitAmt) return b._splitAmt
-  if (b.split_amt && b.split_amt > 0) return b.split_amt
+  if (billSlots && month) {
+    const slot = billSlots.find(s => s.bill_id === b.id && s.month === month)
+    if (slot?.amount_override) return slot.amount_override
+  }
   return b.amount
 }
 
 // ── Bill Assign Sheet ──
-function BillAssignSheet({ bill, totalSlots, currentSlot, onAssign, onSplit, onMarkEarly, onClose, prevCheck }) {
+function BillAssignSheet({ bill, totalSlots, currentSlot, onAssign, onSplit, onMarkEarly, onClose, prevCheck, monthAmt, onSaveAmt }) {
   const [mode, setMode] = useState('move')
   const [splitCount, setSplitCount] = useState(2)
   const initSplits = n => Array.from({length:n},(_,i)=>({ slot: Math.min(currentSlot+i,totalSlots-1), amount: +(bill.amount/n).toFixed(2) }))
@@ -70,7 +73,15 @@ function BillAssignSheet({ bill, totalSlots, currentSlot, onAssign, onSplit, onM
       <div onClick={e=>e.stopPropagation()} style={{width:'100%',background:'var(--bg)',borderRadius:'20px 20px 0 0',padding:'14px 16px 32px',maxHeight:'90vh',overflowY:'auto'}}>
         <div style={{width:36,height:4,background:'#dcd6e0',borderRadius:2,margin:'0 auto 12px'}}/>
         <div style={{fontSize:15,fontWeight:800,marginBottom:2}}>{bill.name}</div>
-        <div style={{fontSize:12,color:'var(--ink2)',marginBottom:14}}>{money(bill.amount,2)}{bill.autopay?' · 🔄 autopay':''}</div>
+        <div style={{fontSize:12,color:'var(--ink2)',marginBottom:10}}>{money(bill.amount,2)} default · {bill.autopay?'🔄 autopay':'manual'}</div>
+        <div style={{background:'#fff',border:'1.5px solid var(--line)',borderRadius:12,padding:'10px 13px',marginBottom:14}}>
+          <div style={{fontSize:10,fontWeight:800,color:'var(--ink2)',marginBottom:6}}>AMOUNT THIS MONTH</div>
+          <div style={{display:'flex',gap:8,alignItems:'center'}}>
+            <input id="amtOverride" defaultValue={monthAmt||bill.amount} type="number" step="0.01" style={{flex:1,padding:'8px 11px',borderRadius:10,border:'1.5px solid var(--line)',fontSize:16,fontWeight:700}}/>
+            <button onClick={()=>{const v=+document.getElementById('amtOverride').value;if(v>0)onSaveAmt(v)}} style={{padding:'8px 14px',borderRadius:10,background:'var(--matcha)',color:'#4e6327',fontWeight:800,fontSize:12,border:'none',cursor:'pointer'}}>Save</button>
+          </div>
+          <div style={{fontSize:10,color:'var(--ink2)',marginTop:5}}>Only affects this month — default stays {money(bill.amount)}</div>
+        </div>
         <div style={{display:'flex',background:'#efe7f2',borderRadius:12,padding:3,marginBottom:16}}>
           <button onClick={()=>setMode('move')} style={{flex:1,padding:8,borderRadius:10,fontWeight:800,fontSize:12,border:'none',background:mode==='move'?'#fff':'none',color:mode==='move'?'#9c3f74':'var(--ink2)',cursor:'pointer'}}>Move to check</button>
           <button onClick={()=>setMode('split')} style={{flex:1,padding:8,borderRadius:10,fontWeight:800,fontSize:12,border:'none',background:mode==='split'?'#fff':'none',color:mode==='split'?'#9c3f74':'var(--ink2)',cursor:'pointer'}}>Split payments</button>
@@ -144,7 +155,7 @@ function OneTimeSheet({ item, totalSlots, onSave, onDelete, onClose }) {
         </div>
         <button onClick={()=>onSave(item.id,name,+amount||0,slot)} style={{width:'100%',padding:13,borderRadius:14,background:'var(--matcha)',color:'#4e6327',fontWeight:800,fontSize:14,border:'none',cursor:'pointer',marginBottom:8}}>Save changes ✨</button>
         <button onClick={onClose} style={{width:'100%',padding:11,borderRadius:14,background:'#fff',border:'1.5px solid var(--line)',color:'var(--ink2)',fontWeight:700,fontSize:13,cursor:'pointer',marginBottom:8}}>Cancel</button>
-        <button onClick={()=>onDelete(item.id)} style={{width:'100%',padding:10,borderRadius:12,background:'none',border:'none',color:'#c0483f',fontWeight:700,fontSize:12,cursor:'pointer'}}>🗑 Remove</button>
+        <button onClick={()=>{ if(window.confirm('Remove this item?')) onDelete(item.id) }} style={{width:'100%',padding:10,borderRadius:12,background:'none',border:'none',color:'#c0483f',fontWeight:700,fontSize:12,cursor:'pointer'}}>🗑 Remove</button>
       </div>
     </div>
   )
@@ -158,10 +169,10 @@ function ThisWeek({ check, slot, db, update, insert, remove, showToast }) {
   const billSlots = db.bill_slots || []
   const billsForSlot = getBillsForSlot(slot, totalSlots, db.bills, m, billSlots)
   const oneTimeItems = (db.one_time_items||[]).filter(i=>i.month===m&&i.check_slot===slot)
-  const totalBills = billsForSlot.reduce((s,b)=>s+getAmt(b),0)
+  const totalBills = billsForSlot.reduce((s,b)=>s+getAmt(b, billSlots, m),0)
   const totalOneTime = oneTimeItems.reduce((s,i)=>s+i.amount,0)
-  const paidBills = billsForSlot.reduce((s,b)=>s+(b.status==='paid'?getAmt(b):b.paid_amount||0),0)
-  const paidCount = billsForSlot.filter(b=>b.status==='paid'||(b.paid_amount||0)>=getAmt(b)).length
+  const paidBills = billsForSlot.reduce((s,b)=>s+(b.status==='paid'?getAmt(b, billSlots, m):b.paid_amount||0),0)
+  const paidCount = billsForSlot.filter(b=>b.status==='paid'||(b.paid_amount||0)>=getAmt(b, billSlots, m)).length
   const debtExtra = 75
   const savingsRec = 125
   const leftover = check.net - totalBills - totalOneTime - debtExtra - savingsRec
@@ -171,7 +182,7 @@ function ThisWeek({ check, slot, db, update, insert, remove, showToast }) {
   const paidOneTimeIds = new Set((db.spend||[]).filter(s=>s.one_time_id).map(s=>s.one_time_id))
 
   const markBillPaid = (bill) => {
-    const isPaid = bill.status==='paid'||(bill.paid_amount||0)>=getAmt(bill)
+    const isPaid = bill.status==='paid'||(bill.paid_amount||0)>=getAmt(bill, billSlots, m)
     if (isPaid) {
       const linked = (db.spend||[]).find(s=>s.bill_id===bill.id)
       if (linked) remove('spend',linked.id)
@@ -179,7 +190,7 @@ function ThisWeek({ check, slot, db, update, insert, remove, showToast }) {
       showToast(`${bill.name} reverted`)
     } else {
       update('bills',bill.id,{status:'paid',paid_amount:bill.amount})
-      insert('spend',{place:bill.name,category:'Housing',emoji:'🧾',color:'#a89be6',amount:getAmt(bill),date:todayISO(),bill_id:bill.id})
+      insert('spend',{place:bill.name,category:'Housing',emoji:'🧾',color:'#a89be6',amount:getAmt(bill, billSlots, m),date:todayISO(),bill_id:bill.id})
       showToast(`${bill.name} paid ✨`)
     }
   }
@@ -254,7 +265,7 @@ function ThisWeek({ check, slot, db, update, insert, remove, showToast }) {
         </div>
         {billsForSlot.length===0&&<div style={{padding:14,fontSize:12,color:'var(--ink2)'}}>No bills assigned — set up in Budgets</div>}
         {billsForSlot.map((b,idx)=>{
-          const isPaid=b.status==='paid'||(b.paid_amount||0)>=getAmt(b)
+          const isPaid=b.status==='paid'||(b.paid_amount||0)>=getAmt(b, billSlots, m)
           return (
             <div key={b.id} style={{borderBottom:idx<billsForSlot.length-1?'1px solid var(--line)':'none'}}>
               <Row
@@ -263,7 +274,7 @@ function ThisWeek({ check, slot, db, update, insert, remove, showToast }) {
                 iconBg='#fff'
                 title={b.name}
                 sub={<>{b.autopay&&<span style={{background:'#e0f2fe',color:'#0878a0',padding:'1px 5px',borderRadius:6,fontWeight:800,marginRight:4}}>auto</span>}due {b.due_day}{b.due_day===1?'st':b.due_day===2?'nd':b.due_day===3?'rd':'th'}</>}
-                amt={money(getAmt(b),2)}
+                amt={money(getAmt(b, billSlots, m),2)}
                 amtColor={isPaid?'#3b8f6a':'var(--ink)'}
                 btnLabel={isPaid?'undo':'pay'}
                 btnColor={isPaid?'#c0483f':'#3b8f6a'}
@@ -405,7 +416,7 @@ function AddItemSheet({ slot, slotLabel, month, bills, onAdd, onClose }) {
           </div>
         )}
 
-        <button onClick={()=>onAdd(name, amt, isEarlyBill?selectedBill:null, isEarlyBill?coversMonth:null)} disabled={!name||!amt||(isEarlyBill&&(!selectedBill||!coversMonth))} style={{width:'100%',padding:13,borderRadius:14,background:(!name||!amt||(isEarlyBill&&(!selectedBill||!coversMonth)))?'#dcd6e0':'var(--matcha)',color:(!name||!amt||(isEarlyBill&&(!selectedBill||!coversMonth)))?'var(--ink2)':'#4e6327',fontWeight:800,fontSize:14,border:'none',cursor:'pointer',marginBottom:8}}>
+        <button onClick={()=>{ onAdd(name, amt, isEarlyBill?selectedBill:null, isEarlyBill?coversMonth:null); onClose(); }} disabled={!name||!amt||(isEarlyBill&&(!selectedBill||!coversMonth))} style={{width:'100%',padding:13,borderRadius:14,background:(!name||!amt||(isEarlyBill&&(!selectedBill||!coversMonth)))?'#dcd6e0':'var(--matcha)',color:(!name||!amt||(isEarlyBill&&(!selectedBill||!coversMonth)))?'var(--ink2)':'#4e6327',fontWeight:800,fontSize:14,border:'none',cursor:'pointer',marginBottom:8}}>
           Add to {slotLabel} ✨
         </button>
         <button onClick={onClose} style={{width:'100%',padding:11,borderRadius:14,background:'#fff',border:'1.5px solid var(--line)',color:'var(--ink2)',fontWeight:700,fontSize:13,cursor:'pointer'}}>Cancel</button>
@@ -418,7 +429,13 @@ function AddItemSheet({ slot, slotLabel, month, bills, onAdd, onClose }) {
 function Budgets({ db, update, insert, remove, showToast }) {
   const months = Object.keys(PAY_SCHEDULE)
   const curM = curMonth()
-  const defaultIdx = Math.max(0, months.indexOf(curM))
+  const defaultIdx = (() => {
+    const idx = months.indexOf(curM)
+    if (idx !== -1) return idx
+    // If current month not in schedule, find closest future month
+    const future = months.findIndex(m => m >= curM)
+    return future !== -1 ? future : months.length - 1
+  })()
   const [monthIdx, setMonthIdx] = useState(defaultIdx)
   const [assignSheet, setAssignSheet] = useState(null)
   const [oneTimeSheet, setOneTimeSheet] = useState(null)
@@ -446,6 +463,17 @@ function Budgets({ db, update, insert, remove, showToast }) {
       insert('bill_slots', { bill_id: bill.id, month: m, check_slot: slot, split_slots: null, split_amts: null })
     }
     showToast(`${bill.name} → Check ${slot+1} for ${m}`)
+    setAssignSheet(null)
+  }
+
+  const handleSaveAmt = (bill, amt) => {
+    const existing = billSlots.find(s => s.bill_id === bill.id && s.month === m)
+    if (existing) {
+      update('bill_slots', existing.id, { amount_override: amt })
+    } else {
+      insert('bill_slots', { bill_id: bill.id, month: m, check_slot: null, amount_override: amt })
+    }
+    showToast(`${bill.name} set to ${money(amt)} for ${m} ✨`)
     setAssignSheet(null)
   }
 
@@ -494,9 +522,9 @@ function Budgets({ db, update, insert, remove, showToast }) {
   }
 
   const deleteOneTime = (id) => {
-    remove('one_time_items',id)
+    remove('one_time_items', id)
     setOneTimeSheet(null)
-    showToast('Removed')
+    showToast('Removed ✨')
   }
 
   return (
@@ -518,7 +546,7 @@ function Budgets({ db, update, insert, remove, showToast }) {
       {checks.map(({slot,day,label})=>{
         const billsHere = getBillsForSlot(slot, totalSlots, db.bills, m, billSlots)
         const itemsHere = oneTimeItems.filter(i=>i.check_slot===slot)
-        const billTotal = billsHere.reduce((s,b)=>s+getAmt(b),0)
+        const billTotal = billsHere.reduce((s,b)=>s+getAmt(b, billSlots, m),0)
         const itemTotal = itemsHere.reduce((s,i)=>s+i.amount,0)
         const total = billTotal + itemTotal
         const isBonus = slot===totalSlots-1&&totalSlots===5
@@ -555,7 +583,7 @@ function Budgets({ db, update, insert, remove, showToast }) {
                       </div>
                     </div>
                     <div style={{display:'flex',alignItems:'center',gap:6}}>
-                      <div style={{fontSize:12,fontWeight:700,fontFamily:'var(--mono)',color:isEarly?'#3b8f6a':'var(--ink)'}}>{money(getAmt(b),2)}</div>
+                      <div style={{fontSize:12,fontWeight:700,fontFamily:'var(--mono)',color:isEarly?'#3b8f6a':'var(--ink)'}}>{money(getAmt(b, billSlots, m),2)}</div>
                       <div style={{fontSize:12,color:'#9c3f74'}}>›</div>
                     </div>
                   </button>
@@ -599,7 +627,18 @@ function Budgets({ db, update, insert, remove, showToast }) {
         onAdd={(name,amt,billId,coversMonth)=>addOneTime(addingSlot,name,amt,billId,coversMonth)}
         onClose={()=>setAddingSlot(null)}
       />}
-      {assignSheet&&<BillAssignSheet bill={assignSheet.bill} totalSlots={totalSlots} currentSlot={assignSheet.currentSlot} onAssign={handleAssign} onSplit={handleSplit} onMarkEarly={handleMarkEarly} onClose={()=>setAssignSheet(null)} prevCheck={prevCheck}/>}
+      {assignSheet&&<BillAssignSheet
+        bill={assignSheet.bill}
+        totalSlots={totalSlots}
+        currentSlot={assignSheet.currentSlot}
+        onAssign={handleAssign}
+        onSplit={handleSplit}
+        onMarkEarly={handleMarkEarly}
+        onClose={()=>setAssignSheet(null)}
+        prevCheck={prevCheck}
+        monthAmt={billSlots.find(s=>s.bill_id===assignSheet.bill.id&&s.month===m)?.amount_override||null}
+        onSaveAmt={(amt)=>handleSaveAmt(assignSheet.bill,amt)}
+      />}
       {oneTimeSheet&&<OneTimeSheet item={oneTimeSheet} totalSlots={totalSlots} onSave={saveOneTime} onDelete={deleteOneTime} onClose={()=>setOneTimeSheet(null)}/>}
     </div>
   )
