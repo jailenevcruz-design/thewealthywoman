@@ -51,7 +51,7 @@ function getAmt(b) {
 }
 
 // ── Bill Assign Sheet ──
-function BillAssignSheet({ bill, totalSlots, currentSlot, onAssign, onSplit, onClose }) {
+function BillAssignSheet({ bill, totalSlots, currentSlot, onAssign, onSplit, onMarkEarly, onClose, prevCheck }) {
   const [mode, setMode] = useState('move')
   const [splitCount, setSplitCount] = useState(2)
   const initSplits = n => Array.from({length:n},(_,i)=>({ slot: Math.min(currentSlot+i,totalSlots-1), amount: +(bill.amount/n).toFixed(2) }))
@@ -72,10 +72,18 @@ function BillAssignSheet({ bill, totalSlots, currentSlot, onAssign, onSplit, onC
           <button onClick={()=>setMode('split')} style={{flex:1,padding:8,borderRadius:10,fontWeight:800,fontSize:12,border:'none',background:mode==='split'?'#fff':'none',color:mode==='split'?'#9c3f74':'var(--ink2)',cursor:'pointer'}}>Split payments</button>
         </div>
         {mode==='move' ? (
-          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-            {Array.from({length:totalSlots},(_,i)=>(
-              <button key={i} onClick={()=>onAssign(bill,i)} style={{flex:1,minWidth:50,padding:'12px 6px',borderRadius:12,fontWeight:800,fontSize:14,border:'none',background:currentSlot===i?'var(--pink)':'var(--lav)',color:currentSlot===i?'#fff':'#5a52a0',cursor:'pointer'}}>{i+1}</button>
-            ))}
+          <div>
+            <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:prevCheck?10:0}}>
+              {Array.from({length:totalSlots},(_,i)=>(
+                <button key={i} onClick={()=>onAssign(bill,i)} style={{flex:1,minWidth:50,padding:'12px 6px',borderRadius:12,fontWeight:800,fontSize:14,border:'none',background:currentSlot===i?'var(--pink)':'var(--lav)',color:currentSlot===i?'#fff':'#5a52a0',cursor:'pointer'}}>{i+1}</button>
+              ))}
+            </div>
+            {prevCheck && (
+              <button onClick={()=>onMarkEarly(bill,prevCheck)} style={{width:'100%',padding:'11px 14px',borderRadius:12,background:'#e7f2c7',border:'1.5px solid #b8d98a',color:'#3a5a1f',fontWeight:800,fontSize:12,cursor:'pointer',textAlign:'left'}}>
+                ✅ Mark as paid early via {prevCheck.label}
+                <div style={{fontSize:10,fontWeight:600,opacity:.8,marginTop:2}}>Shows as covered in this month's plan</div>
+              </button>
+            )}
           </div>
         ) : (
           <div>
@@ -154,7 +162,8 @@ function ThisWeek({ check, slot, db, update, insert, remove, showToast }) {
   const leftover = check.net - totalBills - totalOneTime - debtExtra - savingsRec
   const debts = [...(db.debts||[])].filter(d=>d.balance>0).sort((a,b)=>a.balance-b.balance)
   const focusDebt = debts[0]
-  const [paidOneTime, setPaidOneTime] = useState({})
+  // Derive paid state from db.spend instead of local state
+  const paidOneTimeIds = new Set((db.spend||[]).filter(s=>s.one_time_id).map(s=>s.one_time_id))
 
   const markBillPaid = (bill) => {
     const isPaid = bill.status==='paid'||(bill.paid_amount||0)>=getAmt(bill)
@@ -171,14 +180,13 @@ function ThisWeek({ check, slot, db, update, insert, remove, showToast }) {
   }
 
   const markOneTimePaid = (item) => {
-    if (paidOneTime[item.id]) {
+    const isPaid = paidOneTimeIds.has(item.id)
+    if (isPaid) {
       const linked = (db.spend||[]).find(s=>s.one_time_id===item.id)
       if (linked) remove('spend',linked.id)
-      setPaidOneTime(p=>({...p,[item.id]:false}))
       showToast(`${item.name} reverted`)
     } else {
       insert('spend',{place:item.name,category:'Personal',emoji:'✨',color:'#f6b26b',amount:item.amount,date:todayISO(),one_time_id:item.id})
-      setPaidOneTime(p=>({...p,[item.id]:true}))
       showToast(`${item.name} marked paid ✨`)
     }
   }
@@ -267,7 +275,7 @@ function ThisWeek({ check, slot, db, update, insert, remove, showToast }) {
         <div style={{background:'#fff',border:'1px solid var(--line)',borderRadius:16,overflow:'hidden',marginBottom:12}}>
           <div style={{padding:'10px 14px',fontSize:10,fontWeight:800,color:'var(--ink2)',letterSpacing:'.5px',borderBottom:'1px solid var(--line)'}}>ONE-TIME ITEMS</div>
           {oneTimeItems.map((item,idx)=>{
-            const isPaid=!!paidOneTime[item.id]
+            const isPaid=paidOneTimeIds.has(item.id)
             return (
               <div key={item.id} style={{borderBottom:idx<oneTimeItems.length-1?'1px solid var(--line)':'none'}}>
                 <Row
@@ -339,10 +347,21 @@ function Budgets({ db, update, insert, remove, showToast }) {
   const totalSlots = checks.length
   const oneTimeItems = (db.one_time_items||[]).filter(i=>i.month===m)
   const [yr, mo] = m.split('-').map(Number)
+  // Previous month's last check
+  const prevM = months[monthIdx - 1]
+  const prevChecks = prevM ? getChecksForMonth(prevM) : []
+  const prevLastCheck = prevChecks.length > 0 ? prevChecks[prevChecks.length - 1] : null
+  const prevCheck = prevLastCheck ? { ...prevLastCheck, month: prevM, date: `${prevM}-${String(prevLastCheck.day).padStart(2,'0')}`, label: `${new Date(prevM+'-15').toLocaleDateString('en-US',{month:'short'})} ${prevLastCheck.day} Check ${prevLastCheck.slot+1}` } : null
 
   const handleAssign = (bill, slot) => {
-    update('bills', bill.id, { check_slot: slot, split_slots: null, split_amts: null })
+    update('bills', bill.id, { check_slot: slot, split_slots: null, split_amts: null, early_payment_check: null, early_payment_label: null })
     showToast(`${bill.name} → Check ${slot+1}`)
+    setAssignSheet(null)
+  }
+
+  const handleMarkEarly = (bill, prevCheck) => {
+    update('bills', bill.id, { early_payment_check: prevCheck.date, early_payment_label: prevCheck.label })
+    showToast(`${bill.name} marked as paid early via ${prevCheck.label} ✨`)
     setAssignSheet(null)
   }
 
@@ -418,22 +437,27 @@ function Budgets({ db, update, insert, remove, showToast }) {
                 <div style={{padding:'12px 14px',fontSize:12,color:'var(--ink2)'}}>No bills assigned here yet</div>
               )}
 
-              {billsHere.map((b,idx)=>(
-                <button key={b.id} onClick={()=>setAssignSheet({bill:b,currentSlot:slot})}
-                  style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 14px',background:'none',border:'none',borderBottom:idx<billsHere.length-1||itemsHere.length>0?'1px solid var(--line)':'none',cursor:'pointer',textAlign:'left'}}>
-                  <div style={{display:'flex',alignItems:'center',gap:8}}>
-                    <div style={{width:22,height:22,borderRadius:7,background:b.autopay?'#e0f2fe':'var(--lav)',color:b.autopay?'#0878a0':'#5a52a0',fontSize:9,fontWeight:800,display:'grid',placeItems:'center',flexShrink:0}}>{b.autopay?'A':slot+1}</div>
-                    <div>
-                      <div style={{fontSize:12,fontWeight:700,color:'var(--ink)'}}>{b.name}</div>
-                      <div style={{fontSize:10,color:'var(--ink2)',marginTop:1}}>{b.autopay?'🔄 auto · ':''}due {b.due_day}{b.due_day===1?'st':'th'}{b._splitAmt?' · split':''}</div>
+              {billsHere.map((b,idx)=>{
+                const isEarly = !!b.early_payment_check
+                return (
+                  <button key={b.id} onClick={()=>setAssignSheet({bill:b,currentSlot:slot})}
+                    style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 14px',background:isEarly?'#f0faf4':'none',border:'none',borderBottom:idx<billsHere.length-1||itemsHere.length>0?'1px solid var(--line)':'none',cursor:'pointer',textAlign:'left',opacity:isEarly?.75:1}}>
+                    <div style={{display:'flex',alignItems:'center',gap:8}}>
+                      <div style={{width:22,height:22,borderRadius:7,background:isEarly?'#e1f5ee':b.autopay?'#e0f2fe':'var(--lav)',color:isEarly?'#3b8f6a':b.autopay?'#0878a0':'#5a52a0',fontSize:9,fontWeight:800,display:'grid',placeItems:'center',flexShrink:0}}>{isEarly?'✓':b.autopay?'A':slot+1}</div>
+                      <div>
+                        <div style={{fontSize:12,fontWeight:700,color:isEarly?'var(--ink2)':'var(--ink)'}}>{b.name}</div>
+                        <div style={{fontSize:10,color:isEarly?'#3b8f6a':'var(--ink2)',marginTop:1}}>
+                          {isEarly ? `paid early · ${b.early_payment_label}` : `${b.autopay?'🔄 auto · ':''}due ${b.due_day}${b.due_day===1?'st':'th'}${b._splitAmt?' · split':''}`}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  <div style={{display:'flex',alignItems:'center',gap:6}}>
-                    <div style={{fontSize:12,fontWeight:700,fontFamily:'var(--mono)'}}>{money(getAmt(b),2)}</div>
-                    <div style={{fontSize:12,color:'#9c3f74'}}>›</div>
-                  </div>
-                </button>
-              ))}
+                    <div style={{display:'flex',alignItems:'center',gap:6}}>
+                      <div style={{fontSize:12,fontWeight:700,fontFamily:'var(--mono)',color:isEarly?'#3b8f6a':'var(--ink)'}}>{money(getAmt(b),2)}</div>
+                      <div style={{fontSize:12,color:'#9c3f74'}}>›</div>
+                    </div>
+                  </button>
+                )
+              })}
 
               {itemsHere.map((item,idx)=>(
                 <button key={item.id} onClick={()=>setOneTimeSheet(item)}
@@ -473,7 +497,7 @@ function Budgets({ db, update, insert, remove, showToast }) {
         )
       })}
 
-      {assignSheet&&<BillAssignSheet bill={assignSheet.bill} totalSlots={totalSlots} currentSlot={assignSheet.currentSlot} onAssign={handleAssign} onSplit={handleSplit} onClose={()=>setAssignSheet(null)}/>}
+      {assignSheet&&<BillAssignSheet bill={assignSheet.bill} totalSlots={totalSlots} currentSlot={assignSheet.currentSlot} onAssign={handleAssign} onSplit={handleSplit} onMarkEarly={handleMarkEarly} onClose={()=>setAssignSheet(null)} prevCheck={prevCheck}/>}
       {oneTimeSheet&&<OneTimeSheet item={oneTimeSheet} totalSlots={totalSlots} onSave={saveOneTime} onDelete={deleteOneTime} onClose={()=>setOneTimeSheet(null)}/>}
     </div>
   )
