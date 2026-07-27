@@ -69,14 +69,6 @@ export default function Home({ db, go, update, showToast }) {
       <div className="screen">
         <Hero />
 
-        <div className="sec">💡 Today's money wisdom</div>
-        <button className="nudge" onClick={() => go('more')}>
-          <span className="nbadge">{nudge.t.label} · {nudge.t.source.split('·')[0]}</span>
-          <div className="nquote">"{nudge.t.principle}"</div>
-          <div className="napply">📊 For you: {nudge.text}</div>
-          <span className="nmore">See more in Teachings → </span>
-        </button>
-
         <div className="sec">This month at a glance</div>
         <div className="grid2" style={{ marginBottom: 12 }}>
           <button className="tile t-pink" onClick={() => go('bills')}><div className="big">{paid}/{mb.length}</div><div className="cap">bills paid 💌</div></button>
