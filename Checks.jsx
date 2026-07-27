@@ -471,7 +471,10 @@ function Budgets({ db, update, insert, remove, showToast }) {
     if (existing) {
       update('bill_slots', existing.id, { amount_override: amt })
     } else {
-      insert('bill_slots', { bill_id: bill.id, month: m, check_slot: null, amount_override: amt })
+      // Calculate current auto slot so bill stays visible after override
+      const slotSize = 31 / totalSlots
+      const autoSlot = bill.due_day ? Math.min(totalSlots - 1, Math.floor((bill.due_day - 1) / slotSize)) : 0
+      insert('bill_slots', { bill_id: bill.id, month: m, check_slot: autoSlot, amount_override: amt })
     }
     showToast(`${bill.name} set to ${money(amt)} for ${m} ✨`)
     setAssignSheet(null)
