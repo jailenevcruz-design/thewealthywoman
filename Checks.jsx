@@ -550,7 +550,14 @@ function Budgets({ db, update, insert, remove, showToast }) {
       {checks.map(({slot,day,label})=>{
         const billsHere = getBillsForSlot(slot, totalSlots, db.bills, m, billSlots)
         const itemsHere = oneTimeItems.filter(i=>i.check_slot===slot)
-        const billTotal = billsHere.reduce((s,b)=>s+getAmt(b, billSlots, m),0)
+        const getEarlyAmt = b => { try { return b.early_payments ? (JSON.parse(b.early_payments)[m]?.amount||0) : 0 } catch(e) { return 0 } }
+        const billTotal = billsHere.reduce((s,b)=>{
+          const early = getEarlyAmt(b)
+          const amt = getAmt(b, billSlots, m)
+          // If fully paid early, don't count. If partial, count remainder
+          if (early >= amt) return s
+          return s + (amt - early)
+        }, 0)
         const itemTotal = itemsHere.reduce((s,i)=>s+i.amount,0)
         const total = billTotal + itemTotal
         const isBonus = slot===totalSlots-1&&totalSlots===5
@@ -569,30 +576,57 @@ function Budgets({ db, update, insert, remove, showToast }) {
                 <div style={{padding:'12px 14px',fontSize:12,color:'var(--ink2)'}}>No bills assigned here yet</div>
               )}
 
-              {billsHere.map((b,idx)=>{
-                const earlyPayments = b.early_payments ? (() => { try { return JSON.parse(b.early_payments) } catch(e) { return {} } })() : {}
-                const earlyForThisMonth = earlyPayments[m] || null
-                const isEarly = !!earlyForThisMonth
-                const earlyLabel = earlyForThisMonth ? `${+earlyForThisMonth.amount < +b.amount ? money(earlyForThisMonth.amount)+' paid early' : 'paid early'} · ${earlyForThisMonth.label}` : ''
-                return (
-                  <button key={b.id} onClick={()=>setAssignSheet({bill:b,currentSlot:slot})}
-                    style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 14px',background:isEarly?'#f0faf4':'none',border:'none',borderBottom:idx<billsHere.length-1||itemsHere.length>0?'1px solid var(--line)':'none',cursor:'pointer',textAlign:'left',opacity:isEarly?.75:1}}>
-                    <div style={{display:'flex',alignItems:'center',gap:8}}>
-                      <div style={{width:22,height:22,borderRadius:7,background:isEarly?'#e1f5ee':b.autopay?'#e0f2fe':'var(--lav)',color:isEarly?'#3b8f6a':b.autopay?'#0878a0':'#5a52a0',fontSize:9,fontWeight:800,display:'grid',placeItems:'center',flexShrink:0}}>{isEarly?'✓':b.autopay?'A':slot+1}</div>
-                      <div>
-                        <div style={{fontSize:12,fontWeight:700,color:isEarly?'var(--ink2)':'var(--ink)'}}>{b.name}</div>
-                        <div style={{fontSize:10,color:isEarly?'#3b8f6a':'var(--ink2)',marginTop:1}}>
-                          {isEarly ? earlyLabel : `${b.autopay?'🔄 auto · ':''}due ${b.due_day}${b.due_day===1?'st':'th'}${b._splitAmt?' · split':''}`}
+              {(() => {
+                const getEarly = b => { try { return b.early_payments ? JSON.parse(b.early_payments)[m] : null } catch(e) { return null } }
+                const regularBills = billsHere.filter(b => !getEarly(b))
+                const earlyBills = billsHere.filter(b => !!getEarly(b))
+                return <>
+                  {regularBills.map((b,idx)=>(
+                    <button key={b.id} onClick={()=>setAssignSheet({bill:b,currentSlot:slot})}
+                      style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 14px',background:'none',border:'none',borderBottom:(idx<regularBills.length-1||earlyBills.length>0||itemsHere.length>0)?'1px solid var(--line)':'none',cursor:'pointer',textAlign:'left'}}>
+                      <div style={{display:'flex',alignItems:'center',gap:8}}>
+                        <div style={{width:22,height:22,borderRadius:7,background:b.autopay?'#e0f2fe':'var(--lav)',color:b.autopay?'#0878a0':'#5a52a0',fontSize:9,fontWeight:800,display:'grid',placeItems:'center',flexShrink:0}}>{b.autopay?'A':slot+1}</div>
+                        <div>
+                          <div style={{fontSize:12,fontWeight:700,color:'var(--ink)'}}>{b.name}</div>
+                          <div style={{fontSize:10,color:'var(--ink2)',marginTop:1}}>{b.autopay?'🔄 auto · ':''}due {b.due_day}{b.due_day===1?'st':'th'}{b._splitAmt?' · split':''}</div>
                         </div>
                       </div>
-                    </div>
-                    <div style={{display:'flex',alignItems:'center',gap:6}}>
-                      <div style={{fontSize:12,fontWeight:700,fontFamily:'var(--mono)',color:isEarly?'#3b8f6a':'var(--ink)'}}>{money(getAmt(b, billSlots, m),2)}</div>
-                      <div style={{fontSize:12,color:'#9c3f74'}}>›</div>
-                    </div>
-                  </button>
-                )
-              })}
+                      <div style={{display:'flex',alignItems:'center',gap:6}}>
+                        <div style={{fontSize:12,fontWeight:700,fontFamily:'var(--mono)'}}>{money(getAmt(b, billSlots, m),2)}</div>
+                        <div style={{fontSize:12,color:'#9c3f74'}}>›</div>
+                      </div>
+                    </button>
+                  ))}
+                  {earlyBills.length>0&&(
+                    <>
+                      <div style={{padding:'7px 14px',background:'#f0faf4',borderBottom:'1px solid var(--line)',fontSize:9,fontWeight:800,color:'#3b8f6a',letterSpacing:'.5px'}}>✅ PAID EARLY FROM PREVIOUS CHECK</div>
+                      {earlyBills.map((b,idx)=>{
+                        const ep = getEarly(b)
+                        const isPartial = ep && +ep.amount < +b.amount
+                        return (
+                          <button key={b.id} onClick={()=>setAssignSheet({bill:b,currentSlot:slot})}
+                            style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 14px',background:'#f0faf4',border:'none',borderBottom:(idx<earlyBills.length-1||itemsHere.length>0)?'1px solid var(--line)':'none',cursor:'pointer',textAlign:'left',opacity:.85}}>
+                            <div style={{display:'flex',alignItems:'center',gap:8}}>
+                              <div style={{width:22,height:22,borderRadius:7,background:'#e1f5ee',color:'#3b8f6a',fontSize:10,fontWeight:800,display:'grid',placeItems:'center',flexShrink:0}}>✓</div>
+                              <div>
+                                <div style={{fontSize:12,fontWeight:700,color:'var(--ink2)'}}>{b.name}</div>
+                                <div style={{fontSize:10,color:'#3b8f6a',marginTop:1}}>
+                                  {ep?.label} · {money(ep?.amount||0)}
+                                  {isPartial&&<span style={{color:'#d4a017',marginLeft:4}}>· {money(b.amount-(+ep.amount||0))} still owed</span>}
+                                </div>
+                              </div>
+                            </div>
+                            <div style={{display:'flex',alignItems:'center',gap:6}}>
+                              <div style={{fontSize:12,fontWeight:700,fontFamily:'var(--mono)',color:'#3b8f6a'}}>{money(ep?.amount||0,2)}</div>
+                              <div style={{fontSize:12,color:'#9c3f74'}}>›</div>
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </>
+                  )}
+                </>
+              })()}
 
               {itemsHere.map((item,idx)=>(
                 <button key={item.id} onClick={()=>setOneTimeSheet(item)}
