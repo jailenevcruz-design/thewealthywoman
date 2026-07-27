@@ -352,3 +352,58 @@ body{-webkit-font-smoothing:antialiased}
     display: none !important;
   }
 }
+
+
+/* ═══ DESKTOP LAYOUT ═══ */
+@media (min-width: 900px) {
+  body { background: #e8e3ee; }
+
+  .desktop-main {
+    width: 100% !important;
+  }
+
+  .desktop-main .screen {
+    padding: 32px 40px 40px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Make summary donut layout horizontal */
+  .desktop-main .summary {
+    flex-direction: row !important;
+    align-items: flex-start !important;
+    gap: 24px !important;
+  }
+
+  .desktop-main .summary .donut {
+    width: 160px !important;
+    height: 160px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .desktop-main .legend {
+    flex: 1 !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 2px 16px !important;
+  }
+
+  /* Two column layout for bills */
+  .desktop-bills-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 20px !important;
+  }
+
+  /* Wider pills */
+  .desktop-main .pills {
+    width: auto !important;
+  }
+
+  /* Checks budget grid - 2 columns */
+  .desktop-main .budget-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 16px !important;
+  }
+}
