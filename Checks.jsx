@@ -354,6 +354,7 @@ function AddItemSheet({ slot, slotLabel, month, bills, onAdd, onClose }) {
   const [isEarlyBill, setIsEarlyBill] = useState(false)
   const [selectedBill, setSelectedBill] = useState('')
   const [coversMonth, setCoversMonth] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
   const activeBills = (bills||[]).filter(b=>!b.archived)
 
@@ -416,8 +417,8 @@ function AddItemSheet({ slot, slotLabel, month, bills, onAdd, onClose }) {
           </div>
         )}
 
-        <button onClick={()=>{ onAdd(name, amt, isEarlyBill?selectedBill:null, isEarlyBill?coversMonth:null); onClose(); }} disabled={!name||!amt||(isEarlyBill&&(!selectedBill||!coversMonth))} style={{width:'100%',padding:13,borderRadius:14,background:(!name||!amt||(isEarlyBill&&(!selectedBill||!coversMonth)))?'#dcd6e0':'var(--matcha)',color:(!name||!amt||(isEarlyBill&&(!selectedBill||!coversMonth)))?'var(--ink2)':'#4e6327',fontWeight:800,fontSize:14,border:'none',cursor:'pointer',marginBottom:8}}>
-          Add to {slotLabel} ✨
+        <button onClick={()=>{ if(submitting) return; setSubmitting(true); onAdd(name, amt, isEarlyBill?selectedBill:null, isEarlyBill?coversMonth:null); onClose(); }} disabled={submitting||!name||!amt||(isEarlyBill&&(!selectedBill||!coversMonth))} style={{width:'100%',padding:13,borderRadius:14,background:(submitting||!name||!amt||(isEarlyBill&&(!selectedBill||!coversMonth)))?'#dcd6e0':'var(--matcha)',color:(submitting||!name||!amt||(isEarlyBill&&(!selectedBill||!coversMonth)))?'var(--ink2)':'#4e6327',fontWeight:800,fontSize:14,border:'none',cursor:submitting?'default':'pointer',marginBottom:8}}>
+          {submitting ? 'Adding…' : `Add to Check ${slot+1} ✨`}
         </button>
         <button onClick={onClose} style={{width:'100%',padding:11,borderRadius:14,background:'#fff',border:'1.5px solid var(--line)',color:'var(--ink2)',fontWeight:700,fontSize:13,cursor:'pointer'}}>Cancel</button>
       </div>
