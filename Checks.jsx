@@ -530,9 +530,9 @@ function Budgets({ db, update, insert, remove, showToast }) {
 
               {billsHere.map((b,idx)=>{
                 const earlyPayments = b.early_payments ? (() => { try { return JSON.parse(b.early_payments) } catch(e) { return {} } })() : {}
-                const earlyForThisMonth = earlyPayments[m]
-                const isEarly = !!earlyForThisMonth || !!b.early_payment_check
-                const earlyLabel = earlyForThisMonth ? `${earlyForThisMonth.amount < b.amount ? money(earlyForThisMonth.amount)+' paid early' : 'paid early'} · ${earlyForThisMonth.label}` : b.early_payment_label
+                const earlyForThisMonth = earlyPayments[m] || null
+                const isEarly = !!earlyForThisMonth
+                const earlyLabel = earlyForThisMonth ? `${+earlyForThisMonth.amount < +b.amount ? money(earlyForThisMonth.amount)+' paid early' : 'paid early'} · ${earlyForThisMonth.label}` : ''
                 return (
                   <button key={b.id} onClick={()=>setAssignSheet({bill:b,currentSlot:slot})}
                     style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 14px',background:isEarly?'#f0faf4':'none',border:'none',borderBottom:idx<billsHere.length-1||itemsHere.length>0?'1px solid var(--line)':'none',cursor:'pointer',textAlign:'left',opacity:isEarly?.75:1}}>
