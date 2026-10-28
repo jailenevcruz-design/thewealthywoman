@@ -11,6 +11,8 @@ const PAY_SCHEDULE = {
   '2027-01': [1,8,15,22,29],
 }
 
+const MONTHS = Object.keys(PAY_SCHEDULE)
+
 function getCheckLabel(bill, billSlots, month) {
   const days = PAY_SCHEDULE[month] || []
   const totalSlots = days.length
@@ -30,18 +32,18 @@ function getCheckLabel(bill, billSlots, month) {
   return `Check ${slot+1} · ${date.toLocaleDateString('en-US',{month:'short',day:'numeric'})}`
 }
 
-function PayForm({ bill, monthAmt, onSave, onClose }) {
+function PayForm({ bill, monthAmt, selectedMonth, onSave, onClose }) {
   const [amt, setAmt] = useState(String(+(monthAmt - (bill.paid_amount || 0)).toFixed(2)))
-  const [billMonth, setBillMonth] = useState(curMonth())
+  const [billMonth, setBillMonth] = useState(selectedMonth)
   return (
     <div>
-      <div style={{ background: 'linear-gradient(135deg,var(--pink-soft),var(--lav))', borderRadius: 14, padding: 12, marginBottom: 12, textAlign: 'center' }}>
+      <div style={{ background: 'linear-gradient(135deg,#fff0f5,#f0ecff)', borderRadius: 14, padding: 12, marginBottom: 12, textAlign: 'center' }}>
         <input value={amt} onChange={e => setAmt(e.target.value)} placeholder="$0.00" inputMode="decimal" autoFocus style={{ fontSize: 32, fontWeight: 800, color: '#5a3f56', background: 'none', border: 'none', textAlign: 'center', width: '100%', outline: 'none' }} />
       </div>
       <div className="field">
         <label>Which month is this for?</label>
         <input type="month" value={billMonth} onChange={e => setBillMonth(e.target.value)} />
-        <div style={{ fontSize: 10, color: 'var(--ink2)', marginTop: 4 }}>Change if catching up on a late payment</div>
+        <div style={{ fontSize: 10, color: 'var(--ink2)', marginTop: 4 }}>Change if paying a future month early</div>
       </div>
       <button className="apply" onClick={() => { if (+amt > 0) onSave(+amt, billMonth) }}>Apply payment ✨</button>
       <button className="cancel" onClick={onClose} style={{ marginTop: 8 }}>Cancel</button>
@@ -49,37 +51,100 @@ function PayForm({ bill, monthAmt, onSave, onClose }) {
   )
 }
 
+// Sheet for planning a future month's bill amount
+function PlanSheet({ bill, billSlots, month, onSaveAmt, onClose }) {
+  const existing = billSlots.find(s => s.bill_id === bill.id && s.month === month)
+  const [amt, setAmt] = useState(String(existing?.amount_override || bill.amount))
+  const [note, setNote] = useState(existing?.note || '')
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(60,45,70,.45)', display: 'flex', alignItems: 'flex-end' }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{ width: '100%', background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '14px 16px 32px' }}>
+        <div style={{ width: 36, height: 4, background: '#dcd6e0', borderRadius: 2, margin: '0 auto 12px' }} />
+        <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 2 }}>Plan: {bill.name} 📋</div>
+        <div style={{ fontSize: 12, color: 'var(--ink2)', marginBottom: 16 }}>
+          {new Date(month + '-15').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} · default {money(bill.amount)}
+        </div>
+        <div style={{ background: 'linear-gradient(135deg,#fff0f5,#f0ecff)', borderRadius: 14, padding: 12, marginBottom: 14, textAlign: 'center' }}>
+          <div style={{ fontSize: 11, color: 'var(--ink2)', marginBottom: 6, fontWeight: 700 }}>AMOUNT THIS MONTH</div>
+          <input
+            value={amt}
+            onChange={e => setAmt(e.target.value)}
+            type="number" step="0.01"
+            style={{ fontSize: 32, fontWeight: 800, color: '#5a3f56', background: 'none', border: 'none', textAlign: 'center', width: '100%', outline: 'none' }}
+          />
+        </div>
+        {+amt !== bill.amount && (
+          <div style={{ background: '#fff6ea', border: '1px solid #f5e2c4', borderRadius: 12, padding: '9px 13px', fontSize: 11, color: '#9a6a1a', fontWeight: 600, marginBottom: 14 }}>
+            ⚡ Overriding default {money(bill.amount)} → {money(+amt || 0)} for {new Date(month + '-15').toLocaleDateString('en-US', { month: 'long' })} only
+          </div>
+        )}
+        <div className="field">
+          <label>Note (optional)</label>
+          <input value={note} onChange={e => setNote(e.target.value)} placeholder="e.g. higher due to usage" style={{ width: '100%', padding: '9px 12px', borderRadius: 12, border: '1.5px solid var(--line)', fontSize: 13 }} />
+        </div>
+        <button className="apply" onClick={() => onSaveAmt(+amt || bill.amount, note)}>Save plan ✨</button>
+        {existing?.amount_override && (
+          <button onClick={() => onSaveAmt(null, null)} style={{ width: '100%', marginTop: 8, padding: 11, borderRadius: 14, background: 'none', border: 'none', color: '#c0483f', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
+            ↩ Reset to default ({money(bill.amount)})
+          </button>
+        )}
+        <button className="cancel" onClick={onClose} style={{ marginTop: 8 }}>Cancel</button>
+      </div>
+    </div>
+  )
+}
+
 export default function Bills({ db, update, insert, remove, showToast }) {
-  const m = curMonth()
-  const billSlots = db.bill_slots || []
-  const getMonthAmt = (bill) => { const slot = billSlots.find(s => s.bill_id === bill.id && s.month === m); return slot?.amount_override || bill.amount }
+  const cur = curMonth()
+  const curIdx = (() => {
+    const i = MONTHS.indexOf(cur)
+    return i !== -1 ? i : Math.max(0, MONTHS.findIndex(m => m >= cur))
+  })()
+
+  const [monthIdx, setMonthIdx] = useState(curIdx)
   const [expanded, setExpanded] = useState(null)
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState(null)
   const [paySheet, setPaySheet] = useState(null)
+  const [planSheet, setPlanSheet] = useState(null)
   const [historyBill, setHistoryBill] = useState(null)
   const [showArchived, setShowArchived] = useState(false)
 
+  const m = MONTHS[monthIdx]
+  const isFuture = m > cur
+  const isCurrent = m === cur
+
+  const billSlots = db.bill_slots || []
+  const getMonthAmt = (bill) => {
+    const slot = billSlots.find(s => s.bill_id === bill.id && s.month === m)
+    return slot?.amount_override || bill.amount
+  }
+
   const active = (db.bills || []).filter(b => !b.archived)
   const archived = (db.bills || []).filter(b => b.archived)
+
+  // For future months, paid status doesn't apply — show planning totals
   const total = active.reduce((s, b) => s + getMonthAmt(b), 0)
-  const paidSoFar = active.reduce((s, b) => s + (b.status === 'paid' ? getMonthAmt(b) : b.paid_amount || 0), 0)
+  const paidSoFar = isFuture ? 0 : active.reduce((s, b) => s + (b.status === 'paid' ? getMonthAmt(b) : b.paid_amount || 0), 0)
   const stillOwed = total - paidSoFar
-  const paidCount = active.filter(b => b.status === 'paid').length
+  const paidCount = isFuture ? 0 : active.filter(b => b.status === 'paid').length
   const pct = total > 0 ? Math.round(paidSoFar / total * 100) : 0
   const today = new Date().getDate()
 
   const sorted = [...active].sort((a, b) => {
-    if (a.status === 'paid' && b.status !== 'paid') return 1
-    if (a.status !== 'paid' && b.status === 'paid') return -1
-    const aOver = a.status !== 'paid' && a.due_day < today && !a.running
-    const bOver = b.status !== 'paid' && b.due_day < today && !b.running
-    if (aOver && !bOver) return -1
-    if (!aOver && bOver) return 1
+    if (!isFuture) {
+      if (a.status === 'paid' && b.status !== 'paid') return 1
+      if (a.status !== 'paid' && b.status === 'paid') return -1
+      const aOver = a.status !== 'paid' && a.due_day < today && !a.running
+      const bOver = b.status !== 'paid' && b.due_day < today && !b.running
+      if (aOver && !bOver) return -1
+      if (!aOver && bOver) return 1
+    }
     return (a.due_day || 0) - (b.due_day || 0)
   })
-  const unpaid = sorted.filter(b => b.status !== 'paid')
-  const paid = sorted.filter(b => b.status === 'paid')
+  const unpaid = isFuture ? sorted : sorted.filter(b => b.status !== 'paid')
+  const paid = isFuture ? [] : sorted.filter(b => b.status === 'paid')
 
   const billPayments = (db.spend || []).filter(s => s.bill_id)
 
@@ -91,6 +156,34 @@ export default function Bills({ db, update, insert, remove, showToast }) {
     insert('spend', { place: b.name, category: b.grp || 'Housing', emoji: '🧾', color: '#a89be6', amount: amt, date: new Date().toISOString().slice(0,10), bill_id: b.id, bill_month: billMonth })
     showToast(`Payment logged — ${money(amt)} on ${b.name} ✨`)
     setPaySheet(null)
+    setExpanded(null)
+  }
+
+  const savePlan = (bill, amt, note) => {
+    const existing = billSlots.find(s => s.bill_id === bill.id && s.month === m)
+    if (amt === null) {
+      // Reset: remove override
+      if (existing) {
+        const days = PAY_SCHEDULE[m] || []
+        const totalSlots = days.length
+        const slotSize = 31 / totalSlots
+        const autoSlot = bill.due_day ? Math.min(totalSlots - 1, Math.floor((bill.due_day - 1) / slotSize)) : 0
+        update('bill_slots', existing.id, { amount_override: null, note: null, check_slot: autoSlot })
+      }
+      showToast(`${bill.name} reset to default ✨`)
+    } else {
+      if (existing) {
+        update('bill_slots', existing.id, { amount_override: amt, note: note || null })
+      } else {
+        const days = PAY_SCHEDULE[m] || []
+        const totalSlots = days.length
+        const slotSize = 31 / totalSlots
+        const autoSlot = bill.due_day ? Math.min(totalSlots - 1, Math.floor((bill.due_day - 1) / slotSize)) : 0
+        insert('bill_slots', { bill_id: bill.id, month: m, check_slot: autoSlot, amount_override: amt, note: note || null })
+      }
+      showToast(`${bill.name} planned at ${money(amt)} for ${new Date(m+'-15').toLocaleDateString('en-US',{month:'long'})} ✨`)
+    }
+    setPlanSheet(null)
     setExpanded(null)
   }
 
@@ -126,17 +219,18 @@ export default function Bills({ db, update, insert, remove, showToast }) {
 
   const BillRow = ({ b }) => {
     const mAmt = getMonthAmt(b)
-    const isPaid = b.status === 'paid'
-    const isPartial = b.status === 'partial'
-    const isOverdue = !isPaid && !b.running && b.due_day && b.due_day < today
+    const isPaid = !isFuture && b.status === 'paid'
+    const isPartial = !isFuture && b.status === 'partial'
+    const isOverdue = !isFuture && !isPaid && !b.running && b.due_day && b.due_day < today
     const isOpen = expanded === b.id
     const payCount = billPayments.filter(p => p.bill_id === b.id).length
+    const hasOverride = billSlots.find(s => s.bill_id === b.id && s.month === m)?.amount_override
 
     return (
       <div style={{ background: '#fff', border: `1px solid ${isOverdue ? '#fca5a5' : 'var(--line)'}`, borderRadius: 14, marginBottom: 8, overflow: 'hidden' }}>
         <button onClick={() => toggle(b.id)} style={{ width: '100%', display: 'flex', alignItems: 'center', padding: '13px 14px', gap: 12, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
-          <div style={{ width: 22, height: 22, borderRadius: '50%', border: `2px solid ${isPaid ? '#3b8f6a' : isPartial ? '#d4a017' : isOverdue ? '#c0483f' : '#dcd6e0'}`, background: isPaid ? '#3b8f6a' : 'none', display: 'grid', placeItems: 'center', fontSize: 10, color: isPaid ? '#fff' : isPartial ? '#d4a017' : '', fontWeight: 800, flexShrink: 0 }}>
-            {isPaid ? '✓' : isPartial ? '½' : ''}
+          <div style={{ width: 22, height: 22, borderRadius: '50%', border: `2px solid ${isPaid ? '#3b8f6a' : isPartial ? '#d4a017' : isOverdue ? '#c0483f' : isFuture ? '#c9b8ee' : '#dcd6e0'}`, background: isPaid ? '#3b8f6a' : isFuture ? '#f0ecff' : 'none', display: 'grid', placeItems: 'center', fontSize: 10, color: isPaid ? '#fff' : isPartial ? '#d4a017' : isFuture ? '#9c3f74' : '', fontWeight: 800, flexShrink: 0 }}>
+            {isPaid ? '✓' : isPartial ? '½' : isFuture ? '·' : ''}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: isPaid ? 'var(--ink2)' : 'var(--ink)' }}>{b.name}</div>
@@ -145,19 +239,32 @@ export default function Bills({ db, update, insert, remove, showToast }) {
               {isOverdue && <span style={{ background: '#fee2e2', color: '#c0483f', padding: '1px 5px', borderRadius: 6, fontWeight: 800 }}>overdue</span>}
               {isPartial && <span style={{ fontWeight: 700, color: '#d4a017' }}>{money(b.paid_amount)} paid · {money(mAmt - (b.paid_amount||0))} left</span>}
               {!isPartial && <span>due {b.due_day}{b.due_day===1?'st':b.due_day===2?'nd':b.due_day===3?'rd':'th'}{b.running ? ' · running' : ''}</span>}
+              {hasOverride && <span style={{ background: '#fff3dc', color: '#9a6a1a', padding: '1px 5px', borderRadius: 6, fontWeight: 700 }}>planned ✨</span>}
               {getCheckLabel(b, billSlots, m) && <span style={{ background: 'var(--lav)', color: '#5a52a0', padding: '1px 5px', borderRadius: 6, fontWeight: 700 }}>{getCheckLabel(b, billSlots, m)}</span>}
             </div>
           </div>
-          <div style={{ fontSize: 14, fontWeight: 800, fontFamily: 'var(--mono)', color: isPaid ? '#3b8f6a' : isOverdue ? '#c0483f' : 'var(--ink)', flexShrink: 0 }}>{money(mAmt, 2)}{mAmt !== b.amount && <span style={{fontSize:9,color:'var(--ink2)',marginLeft:3}}>*</span>}</div>
+          <div style={{ fontSize: 14, fontWeight: 800, fontFamily: 'var(--mono)', color: isPaid ? '#3b8f6a' : isOverdue ? '#c0483f' : isFuture ? '#5a52a0' : 'var(--ink)', flexShrink: 0 }}>{money(mAmt, 2)}{hasOverride && <span style={{fontSize:9,color:'#9a6a1a',marginLeft:3}}>*</span>}</div>
           <div style={{ fontSize: 11, color: 'var(--ink2)', marginLeft: 4 }}>{isOpen ? '▴' : '▾'}</div>
         </button>
         {isOpen && (
           <div style={{ borderTop: '1px solid var(--line)', padding: '10px 14px', background: '#f8f4fb', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {!isPaid && <button onClick={() => setPaySheet(b)} style={{ flex: 1, minWidth: 55, padding: '9px 6px', borderRadius: 10, fontSize: 11, fontWeight: 800, border: 'none', background: 'var(--matcha)', color: '#3a5a1f', cursor: 'pointer' }}>Pay</button>}
-            {isPaid && <button onClick={() => { const p = billPayments.filter(x => x.bill_id === b.id); p.forEach(x => remove('spend', x.id)); update('bills', b.id, { paid_amount: 0, status: 'unpaid' }); showToast(`${b.name} reverted`) }} style={{ flex: 1, minWidth: 55, padding: '9px 6px', borderRadius: 10, fontSize: 11, fontWeight: 800, border: 'none', background: '#fee2e2', color: '#c0483f', cursor: 'pointer' }}>Undo</button>}
-            {payCount > 0 && <button onClick={() => setHistoryBill(b)} style={{ flex: 1, minWidth: 55, padding: '9px 6px', borderRadius: 10, fontSize: 11, fontWeight: 800, border: 'none', background: '#e0f2fe', color: '#0878a0', cursor: 'pointer' }}>History</button>}
-            <button onClick={() => { setEditing(b); setExpanded(null) }} style={{ flex: 1, minWidth: 55, padding: '9px 6px', borderRadius: 10, fontSize: 11, fontWeight: 800, border: 'none', background: 'var(--lav)', color: '#5a52a0', cursor: 'pointer' }}>Edit</button>
-            {!b.autopay && <button onClick={() => { update('bills', b.id, { archived: true }); showToast(`${b.name} archived`) }} style={{ flex: 1, minWidth: 55, padding: '9px 6px', borderRadius: 10, fontSize: 11, fontWeight: 800, border: 'none', background: '#fee2e2', color: '#c0483f', cursor: 'pointer' }}>Unsub</button>}
+            {isFuture ? (
+              // Future month: plan mode
+              <>
+                <button onClick={() => { setPlanSheet(b); setExpanded(null) }} style={{ flex: 1, minWidth: 80, padding: '9px 6px', borderRadius: 10, fontSize: 11, fontWeight: 800, border: 'none', background: '#fff3dc', color: '#9a6a1a', cursor: 'pointer' }}>📋 Set amount</button>
+                <button onClick={() => { setPaySheet(b); setExpanded(null) }} style={{ flex: 1, minWidth: 80, padding: '9px 6px', borderRadius: 10, fontSize: 11, fontWeight: 800, border: 'none', background: 'var(--matcha)', color: '#3a5a1f', cursor: 'pointer' }}>💳 Pay early</button>
+                <button onClick={() => { setEditing(b); setExpanded(null) }} style={{ flex: 1, minWidth: 55, padding: '9px 6px', borderRadius: 10, fontSize: 11, fontWeight: 800, border: 'none', background: 'var(--lav)', color: '#5a52a0', cursor: 'pointer' }}>Edit</button>
+              </>
+            ) : (
+              // Current/past month: normal mode
+              <>
+                {!isPaid && <button onClick={() => setPaySheet(b)} style={{ flex: 1, minWidth: 55, padding: '9px 6px', borderRadius: 10, fontSize: 11, fontWeight: 800, border: 'none', background: 'var(--matcha)', color: '#3a5a1f', cursor: 'pointer' }}>Pay</button>}
+                {isPaid && <button onClick={() => { const p = billPayments.filter(x => x.bill_id === b.id); p.forEach(x => remove('spend', x.id)); update('bills', b.id, { paid_amount: 0, status: 'unpaid' }); showToast(`${b.name} reverted`) }} style={{ flex: 1, minWidth: 55, padding: '9px 6px', borderRadius: 10, fontSize: 11, fontWeight: 800, border: 'none', background: '#fee2e2', color: '#c0483f', cursor: 'pointer' }}>Undo</button>}
+                {payCount > 0 && <button onClick={() => setHistoryBill(b)} style={{ flex: 1, minWidth: 55, padding: '9px 6px', borderRadius: 10, fontSize: 11, fontWeight: 800, border: 'none', background: '#e0f2fe', color: '#0878a0', cursor: 'pointer' }}>History</button>}
+                <button onClick={() => { setEditing(b); setExpanded(null) }} style={{ flex: 1, minWidth: 55, padding: '9px 6px', borderRadius: 10, fontSize: 11, fontWeight: 800, border: 'none', background: 'var(--lav)', color: '#5a52a0', cursor: 'pointer' }}>Edit</button>
+                {!b.autopay && <button onClick={() => { update('bills', b.id, { archived: true }); showToast(`${b.name} archived`) }} style={{ flex: 1, minWidth: 55, padding: '9px 6px', borderRadius: 10, fontSize: 11, fontWeight: 800, border: 'none', background: '#fee2e2', color: '#c0483f', cursor: 'pointer' }}>Unsub</button>}
+              </>
+            )}
           </div>
         )}
       </div>
@@ -167,46 +274,73 @@ export default function Bills({ db, update, insert, remove, showToast }) {
   return (
     <div className="screen">
       <div className="pagetitle">Bills 💌</div>
-      <p className="pagesub">{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</p>
+
+      {/* Month picker */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff', border: '1px solid var(--line)', borderRadius: 14, padding: '11px 16px', marginBottom: 14 }}>
+        <button onClick={() => { setMonthIdx(i => Math.max(0, i-1)); setExpanded(null) }} disabled={monthIdx === 0} style={{ fontSize: 20, color: monthIdx === 0 ? '#dcd6e0' : 'var(--mauve)', background: 'none', border: 'none', cursor: monthIdx === 0 ? 'default' : 'pointer', padding: '2px 8px', fontWeight: 800 }}>‹</button>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 15, fontWeight: 800 }}>{new Date(m + '-15').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</div>
+          <div style={{ fontSize: 10, color: isFuture ? '#9a6a1a' : 'var(--ink2)', marginTop: 2, fontWeight: isFuture ? 700 : 400 }}>
+            {isFuture ? '📋 Planning mode' : isCurrent ? '📍 Current month' : 'Past month'}
+          </div>
+        </div>
+        <button onClick={() => { setMonthIdx(i => Math.min(MONTHS.length-1, i+1)); setExpanded(null) }} disabled={monthIdx === MONTHS.length-1} style={{ fontSize: 20, color: monthIdx === MONTHS.length-1 ? '#dcd6e0' : 'var(--mauve)', background: 'none', border: 'none', cursor: monthIdx === MONTHS.length-1 ? 'default' : 'pointer', padding: '2px 8px', fontWeight: 800 }}>›</button>
+      </div>
+
+      {/* Planning mode banner */}
+      {isFuture && (
+        <div style={{ background: '#fff3dc', border: '1px solid #f5e2c4', borderRadius: 12, padding: '10px 14px', fontSize: 12, color: '#9a6a1a', fontWeight: 600, marginBottom: 14, lineHeight: 1.5 }}>
+          📋 <b>Planning mode</b> — tap any bill to set a custom amount for this month or pay it early from your current check.
+        </div>
+      )}
 
       {/* Summary strip */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-        <div style={{ flex: 1, borderRadius: 14, padding: 12, textAlign: 'center', background: 'var(--pink-soft)', color: '#9c3f74' }}>
-          <div style={{ fontSize: 18, fontWeight: 800, fontFamily: 'var(--mono)' }}>{money(stillOwed)}</div>
-          <div style={{ fontSize: 9, fontWeight: 700, marginTop: 3, textTransform: 'uppercase', letterSpacing: '.4px', opacity: .8 }}>still owed</div>
+        <div style={{ flex: 1, borderRadius: 14, padding: 12, textAlign: 'center', background: '#fff0f5', color: '#9c3f74' }}>
+          <div style={{ fontSize: 18, fontWeight: 800, fontFamily: 'var(--mono)' }}>{money(isFuture ? total : stillOwed)}</div>
+          <div style={{ fontSize: 9, fontWeight: 700, marginTop: 3, textTransform: 'uppercase', letterSpacing: '.4px', opacity: .8 }}>{isFuture ? 'planned' : 'still owed'}</div>
         </div>
         <div style={{ flex: 1, borderRadius: 14, padding: 12, textAlign: 'center', background: '#e7f2c7', color: '#3a5a1f' }}>
-          <div style={{ fontSize: 18, fontWeight: 800, fontFamily: 'var(--mono)' }}>{money(paidSoFar)}</div>
+          <div style={{ fontSize: 18, fontWeight: 800, fontFamily: 'var(--mono)' }}>{money(isFuture ? 0 : paidSoFar)}</div>
           <div style={{ fontSize: 9, fontWeight: 700, marginTop: 3, textTransform: 'uppercase', letterSpacing: '.4px', opacity: .8 }}>paid</div>
         </div>
         <div style={{ flex: 1, borderRadius: 14, padding: 12, textAlign: 'center', background: 'var(--lav)', color: '#5a52a0' }}>
-          <div style={{ fontSize: 18, fontWeight: 800 }}>{paidCount}/{active.length}</div>
-          <div style={{ fontSize: 9, fontWeight: 700, marginTop: 3, textTransform: 'uppercase', letterSpacing: '.4px', opacity: .8 }}>done</div>
+          <div style={{ fontSize: 18, fontWeight: 800 }}>{isFuture ? active.length : `${paidCount}/${active.length}`}</div>
+          <div style={{ fontSize: 9, fontWeight: 700, marginTop: 3, textTransform: 'uppercase', letterSpacing: '.4px', opacity: .8 }}>{isFuture ? 'bills' : 'done'}</div>
         </div>
       </div>
 
-      {/* Progress bar */}
-      <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 14, padding: '13px 14px', marginBottom: 14 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-          <div style={{ fontSize: 12, fontWeight: 800 }}>Monthly progress</div>
-          <div style={{ fontSize: 11, color: 'var(--ink2)' }}>{pct}% paid</div>
+      {/* Progress bar (current/past only) */}
+      {!isFuture && (
+        <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 14, padding: '13px 14px', marginBottom: 14 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 800 }}>Monthly progress</div>
+            <div style={{ fontSize: 11, color: 'var(--ink2)' }}>{pct}% paid</div>
+          </div>
+          <div style={{ height: 8, background: '#f0eaf5', borderRadius: 4, overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${pct}%`, borderRadius: 4, background: 'linear-gradient(90deg,var(--pink),#c48fd0)' }} />
+          </div>
         </div>
-        <div style={{ height: 8, background: '#f0eaf5', borderRadius: 4, overflow: 'hidden' }}>
-          <div style={{ height: '100%', width: `${pct}%`, borderRadius: 4, background: 'linear-gradient(90deg,var(--pink),#c48fd0)' }} />
-        </div>
-      </div>
+      )}
 
-      {/* Unpaid */}
-      {unpaid.length > 0 && <>
-        <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--pink)', letterSpacing: 1, textTransform: 'uppercase', margin: '0 4px 10px' }}>Due</div>
-        {unpaid.map(b => <BillRow key={b.id} b={b} />)}
-      </>}
-
-      {/* Paid */}
-      {paid.length > 0 && <>
-        <div style={{ fontSize: 10, fontWeight: 800, color: '#3b8f6a', letterSpacing: 1, textTransform: 'uppercase', margin: '14px 4px 10px' }}>Paid ✅</div>
-        {paid.map(b => <BillRow key={b.id} b={b} />)}
-      </>}
+      {/* Bill list */}
+      {isFuture ? (
+        <>
+          <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--mauve)', letterSpacing: 1, textTransform: 'uppercase', margin: '0 4px 10px' }}>All bills · {new Date(m+'-15').toLocaleDateString('en-US',{month:'long'})}</div>
+          {sorted.map(b => <BillRow key={b.id} b={b} />)}
+        </>
+      ) : (
+        <>
+          {unpaid.length > 0 && <>
+            <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--pink)', letterSpacing: 1, textTransform: 'uppercase', margin: '0 4px 10px' }}>Due</div>
+            {unpaid.map(b => <BillRow key={b.id} b={b} />)}
+          </>}
+          {paid.length > 0 && <>
+            <div style={{ fontSize: 10, fontWeight: 800, color: '#3b8f6a', letterSpacing: 1, textTransform: 'uppercase', margin: '14px 4px 10px' }}>Paid ✅</div>
+            {paid.map(b => <BillRow key={b.id} b={b} />)}
+          </>}
+        </>
+      )}
 
       {/* Add bill */}
       {adding ? (
@@ -224,7 +358,7 @@ export default function Bills({ db, update, insert, remove, showToast }) {
           <button className="cancel" type="button" onClick={() => setAdding(false)} style={{ marginTop: 8 }}>Cancel</button>
         </form>
       ) : (
-        <button onClick={() => setAdding(true)} style={{ width: '100%', padding: 13, borderRadius: 14, border: '1.5px dashed var(--pink)', background: 'var(--pink-soft)', color: '#9c3f74', fontWeight: 800, fontSize: 13, marginTop: 8, cursor: 'pointer' }}>+ Add a bill</button>
+        <button onClick={() => setAdding(true)} style={{ width: '100%', padding: 13, borderRadius: 14, border: '1.5px dashed var(--mauve)', background: '#fff0f5', color: 'var(--mauve)', fontWeight: 800, fontSize: 13, marginTop: 8, cursor: 'pointer' }}>+ Add a bill</button>
       )}
 
       {/* Archived */}
@@ -240,14 +374,27 @@ export default function Bills({ db, update, insert, remove, showToast }) {
         ))}
       </>}
 
+      {/* Plan sheet (future month amount override) */}
+      {planSheet && (
+        <PlanSheet
+          bill={planSheet}
+          billSlots={billSlots}
+          month={m}
+          onSaveAmt={(amt, note) => savePlan(planSheet, amt, note)}
+          onClose={() => setPlanSheet(null)}
+        />
+      )}
+
       {/* Pay sheet */}
       {paySheet && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(60,45,70,.45)', display: 'flex', alignItems: 'flex-end' }} onClick={() => setPaySheet(null)}>
           <div onClick={e => e.stopPropagation()} style={{ width: '100%', background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '14px 16px 32px' }}>
             <div style={{ width: 36, height: 4, background: '#dcd6e0', borderRadius: 2, margin: '0 auto 12px' }} />
-            <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 2 }}>Log a payment 💳</div>
-            <div style={{ fontSize: 12, color: 'var(--ink2)', marginBottom: 14 }}>{paySheet.name} · {money(paySheet.amount - (paySheet.paid_amount||0))} remaining</div>
-            <PayForm bill={paySheet} monthAmt={getMonthAmt(paySheet)} onSave={(amt, month) => logPayment(paySheet, amt, month)} onClose={() => setPaySheet(null)} />
+            <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 2 }}>{isFuture ? 'Pay early 💳' : 'Log a payment 💳'}</div>
+            <div style={{ fontSize: 12, color: 'var(--ink2)', marginBottom: 14 }}>
+              {paySheet.name} · {isFuture ? `planning for ${new Date(m+'-15').toLocaleDateString('en-US',{month:'long'})}` : `${money(paySheet.amount - (paySheet.paid_amount||0))} remaining`}
+            </div>
+            <PayForm bill={paySheet} monthAmt={getMonthAmt(paySheet)} selectedMonth={m} onSave={(amt, month) => logPayment(paySheet, amt, month)} onClose={() => setPaySheet(null)} />
           </div>
         </div>
       )}
