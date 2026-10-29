@@ -189,11 +189,12 @@ export default function Bills({ db, update, insert, remove, showToast }) {
 
   const deletePayment = (p) => {
     if (!window.confirm('Delete this payment?')) return
-    const bill = db.bills.find(b => b.id === p.bill_id)
+    const bill = (db.bills || []).find(b => b.id === p.bill_id)
     if (bill) {
       const rest = billPayments.filter(x => x.id !== p.id && x.bill_id === p.bill_id)
-      const newPaid = rest.reduce((s, x) => s + x.amount, 0)
-      update('bills', bill.id, { paid_amount: newPaid, status: newPaid <= 0 ? 'unpaid' : newPaid >= bill.amount ? 'paid' : 'partial' })
+      const newPaid = rest.reduce((s, x) => s + (x.amount || 0), 0)
+      const mAmt = getMonthAmt(bill)
+      update('bills', bill.id, { paid_amount: newPaid, status: newPaid <= 0 ? 'unpaid' : newPaid >= mAmt ? 'paid' : 'partial' })
     }
     remove('spend', p.id)
     showToast('Payment deleted')
@@ -259,7 +260,15 @@ export default function Bills({ db, update, insert, remove, showToast }) {
               // Current/past month: normal mode
               <>
                 {!isPaid && <button onClick={() => setPaySheet(b)} style={{ flex: 1, minWidth: 55, padding: '9px 6px', borderRadius: 10, fontSize: 11, fontWeight: 800, border: 'none', background: 'var(--matcha)', color: '#3a5a1f', cursor: 'pointer' }}>Pay</button>}
-                {isPaid && <button onClick={() => { const p = billPayments.filter(x => x.bill_id === b.id); p.forEach(x => remove('spend', x.id)); update('bills', b.id, { paid_amount: 0, status: 'unpaid' }); showToast(`${b.name} reverted`) }} style={{ flex: 1, minWidth: 55, padding: '9px 6px', borderRadius: 10, fontSize: 11, fontWeight: 800, border: 'none', background: '#fee2e2', color: '#c0483f', cursor: 'pointer' }}>Undo</button>}
+                {isPaid && <button onClick={() => {
+                  // Only remove payments for the current viewing month
+                  const monthPayments = billPayments.filter(x => x.bill_id === b.id && (!x.bill_month || x.bill_month === m))
+                  const otherPayments = billPayments.filter(x => x.bill_id === b.id && x.bill_month && x.bill_month !== m)
+                  monthPayments.forEach(x => remove('spend', x.id))
+                  const remaining = otherPayments.reduce((s, x) => s + (x.amount || 0), 0)
+                  update('bills', b.id, { paid_amount: remaining, status: remaining <= 0 ? 'unpaid' : 'partial' })
+                  showToast(`${b.name} reverted`)
+                }} style={{ flex: 1, minWidth: 55, padding: '9px 6px', borderRadius: 10, fontSize: 11, fontWeight: 800, border: 'none', background: '#fee2e2', color: '#c0483f', cursor: 'pointer' }}>Undo</button>}
                 {payCount > 0 && <button onClick={() => setHistoryBill(b)} style={{ flex: 1, minWidth: 55, padding: '9px 6px', borderRadius: 10, fontSize: 11, fontWeight: 800, border: 'none', background: '#e0f2fe', color: '#0878a0', cursor: 'pointer' }}>History</button>}
                 <button onClick={() => { setEditing(b); setExpanded(null) }} style={{ flex: 1, minWidth: 55, padding: '9px 6px', borderRadius: 10, fontSize: 11, fontWeight: 800, border: 'none', background: 'var(--lav)', color: '#5a52a0', cursor: 'pointer' }}>Edit</button>
                 {!b.autopay && <button onClick={() => { update('bills', b.id, { archived: true }); showToast(`${b.name} archived`) }} style={{ flex: 1, minWidth: 55, padding: '9px 6px', borderRadius: 10, fontSize: 11, fontWeight: 800, border: 'none', background: '#fee2e2', color: '#c0483f', cursor: 'pointer' }}>Unsub</button>}
